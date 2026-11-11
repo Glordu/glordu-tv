@@ -22,6 +22,8 @@
     405: 'YELLOW',
     406: 'BLUE',
     457: 'INFO',
+    65376: 'ENTER', // on-screen keyboard: Done
+    65385: 'CANCEL', // on-screen keyboard: Cancel
   };
 
   // Keys beyond arrows/OK/Back only reach the app once registered.

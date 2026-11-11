@@ -185,6 +185,110 @@ body {
   opacity: 0.65;
 }
 
+/* Settings */
+
+.settings {
+  padding: 4rem 5rem;
+  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
+}
+
+.settings h1 {
+  margin: 0 0 2.4rem;
+  font-size: 2.6rem;
+  font-weight: 400;
+}
+
+.settings-view.is-hidden {
+  display: none;
+}
+
+.settings-rows,
+.settings-results {
+  margin-bottom: 2.4rem;
+}
+
+.settings-row,
+.settings-result {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 0.6rem;
+  padding: 1.1rem 1.6rem;
+  border: 0.15rem solid transparent;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.settings-row.is-focused,
+.settings-result.is-focused {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.settings-label {
+  flex: 0 0 14rem;
+  font-size: 1.5rem;
+  opacity: 0.7;
+}
+
+.settings-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-value,
+.settings-result-name {
+  font-size: 1.5rem;
+}
+
+.settings-row.is-focused .settings-value::before {
+  content: '◀ ';
+  opacity: 0.6;
+}
+
+.settings-row.is-focused .settings-value::after {
+  content: ' ▶';
+  opacity: 0.6;
+}
+
+.settings-note {
+  margin-top: 0.3rem;
+  font-size: 1.1rem;
+  opacity: 0.55;
+}
+
+.settings-result {
+  display: block;
+}
+
+.settings-results {
+  max-height: 32rem;
+  overflow: hidden;
+}
+
+.settings-input {
+  box-sizing: border-box;
+  width: 40rem;
+  padding: 1rem 1.4rem;
+  border: 0.15rem solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.8rem;
+  outline: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font: inherit;
+  font-size: 1.6rem;
+}
+
+.settings-input.is-focused {
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.settings-status {
+  min-height: 1.6rem;
+  margin: 1rem 0;
+  font-size: 1.2rem;
+  opacity: 0.75;
+}
+
 /* About */
 
 .about dl {

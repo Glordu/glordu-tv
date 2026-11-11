@@ -3,7 +3,7 @@
 //   images           path to the images list, relative to config.json
 //   intervalSeconds  time each photo stays up
 //   fadeSeconds      crossfade length
-//   clock            "24h", "12h" or false
+//   clock            "24h" or "12h" (Settings can override), or false to hide
 //   showWeather      current weather above the clock (needs config.weather)
 //   kenBurns         slow zoom on each photo
 //   refreshMinutes   how often to re-read the images list
@@ -37,15 +37,6 @@
     return order;
   }
 
-  function pad(n) {
-    return n < 10 ? '0' + n : String(n);
-  }
-
-  function formatTime(date, mode) {
-    if (mode === '12h') return (date.getHours() % 12 || 12) + ':' + pad(date.getMinutes());
-    return pad(date.getHours()) + ':' + pad(date.getMinutes());
-  }
-
   function child(parent, className) {
     const el = document.createElement('div');
     el.className = className;
@@ -63,7 +54,7 @@
     this.intervalMs = (cfg.intervalSeconds || 60) * 1000;
     this.fadeSeconds = cfg.fadeSeconds != null ? cfg.fadeSeconds : 2;
     this.kenBurns = !!cfg.kenBurns;
-    this.clockMode = cfg.clock === undefined ? '24h' : cfg.clock;
+    this.showClock = cfg.clock !== false;
     this.showWeather = cfg.showWeather !== false;
     this.imagesUrl = ctx.data.resolve(cfg.images || 'images.json');
     this.refreshMs = (cfg.refreshMinutes || 360) * 60 * 1000;
@@ -93,7 +84,7 @@
     this.clockEl = child(corner, 'ambient-clock');
     this.statusEl = child(root, 'ambient-status');
 
-    if (this.clockMode) {
+    if (this.showClock) {
       this.tickClock();
       this.clockTimer = setInterval(() => this.tickClock(), 1000);
     }
@@ -108,7 +99,7 @@
   }
 
   Ambient.prototype.tickClock = function () {
-    const text = formatTime(new Date(), this.clockMode);
+    const text = GTV.clock.format(new Date());
     if (this.clockEl.textContent !== text) this.clockEl.textContent = text;
   };
 

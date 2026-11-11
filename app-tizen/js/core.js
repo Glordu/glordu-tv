@@ -89,9 +89,20 @@
     toastTimer = setTimeout(() => el.classList.remove('is-visible'), 3000);
   };
 
+  // While typing in a text field, only these reach the app; every other key
+  // (letters, Backspace, ◀▶ to move the caret) belongs to the field.
+  const EDITING_KEYS = ['ENTER', 'BACK', 'CANCEL', 'UP', 'DOWN'];
+
+  function isTextField(el) {
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+  }
+
   function onKeyDown(event) {
+    const editing = isTextField(event.target);
+    if (editing && event.key === 'Backspace') return;
     const key = GTV.platform.keyName(event);
     if (!key) return;
+    if (editing && EDITING_KEYS.indexOf(key) < 0) return;
     event.preventDefault();
     const instance = active && active.instance;
     if (instance && instance.onKey && instance.onKey(key)) return;

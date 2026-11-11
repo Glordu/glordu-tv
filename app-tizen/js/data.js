@@ -65,6 +65,9 @@
       return new URL(path, configUrl).href;
     },
 
+    // One-off request with a timeout and no offline copy.
+    request: fetchWithTimeout,
+
     // Network first, cached copy on failure. Rejects only if neither exists.
     fetchJson: function (url) {
       return fetchWithTimeout(url).then(

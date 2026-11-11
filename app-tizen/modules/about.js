@@ -30,6 +30,10 @@
       row(list, 'Version', GTV.VERSION);
       row(list, 'Platform', ctx.platform.name);
       row(list, 'Config', ctx.data.configUrl);
+      const loc = GTV.location.current();
+      const sources = { manual: 'chosen in Settings', auto: 'detected automatically', config: 'config.json default' };
+      row(list, 'Location', loc ? GTV.location.describe(loc) + ' (' + sources[loc.source] + ')' : 'not resolved yet');
+      row(list, 'Time zone', GTV.clock.zone() || 'TV setting (' + (GTV.clock.tvZone() || 'unknown') + ')');
       Object.keys(ctx.data.log).forEach((url) => {
         row(list, url.split('/').pop(), describe(ctx.data.log[url]));
       });

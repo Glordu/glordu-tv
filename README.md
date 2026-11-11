@@ -47,29 +47,49 @@ Its settings come from `modules.<id>` in `config.json`.
 |-----------|--------------|
 | `ambient` | Photo slideshow with weather and clock in the bottom-right corner. Right/Left: next/previous photo. OK or Play/Pause: pause. Up/Down/Info: hide the clock and weather. |
 | `home`    | Launcher tiles. Back from here exits. |
-| `about`   | Version and whether each data file came live or from the offline copy. |
+| `settings` | Location, time zone, temperature units and clock format, saved on the TV. |
+| `about`   | Version, location and time zone in use, and whether each data file came live or from the offline copy. |
 
 Back from the slideshow opens Home. Back from Home exits.
+
+### Settings
+
+Choices made in Settings are stored on the TV (`localStorage`, see
+`js/prefs.js`), never in the public `config.json`.
+
+- **Location** (`js/location.js`): *Automatic* by default, looked up once a day
+  from the TV's internet address via [GeoJS](https://www.geojs.io/), with
+  [ipwho.is](https://ipwho.is/) as backup. Both are free and keyless, and each
+  sees the TV's IP address. Press OK to search for a city instead
+  ([Open-Meteo geocoding](https://open-meteo.com/en/docs/geocoding-api)) using
+  the TV's on-screen keyboard. ◀▶ switches between automatic and the chosen
+  city. If detection fails, the `weather` section of `config.json` is used.
+- **Time zone** (`js/clock.js`): *TV setting* (default; the TV's own clock), *Same as
+  location*, or a zone from a short list.
+- **Temperature** °C/°F and **Clock** 24-hour/12-hour override `config.json`.
+
+While a text field has focus, only OK, Back and ▲▼ reach the app; other keys
+type into the field. The keyboard's Done and Cancel keys (65376, 65385) are
+mapped in `platform/tizen.js`.
 
 ### Weather
 
 `js/weather.js` is shared by any module that wants weather. It returns current
-conditions plus a 7-day forecast, ready for a future forecast page. Data comes
-from [Open-Meteo](https://open-meteo.com/), which is free for personal use and
-needs no API key, so nothing secret goes in this public repo. Set the location
-in `config.json`:
+conditions plus a 7-day forecast, ready for a future forecast page, for the
+location from Settings. Data comes from [Open-Meteo](https://open-meteo.com/),
+which is free for personal use and needs no API key, so nothing secret goes in
+this public repo. `config.json` holds defaults:
 
 ```json
-"weather": { "latitude": 51.51, "longitude": -0.13, "units": "celsius", "refreshMinutes": 30 }
+"weather": { "name": "London", "timezone": "Europe/London", "latitude": 51.51, "longitude": -0.13, "units": "celsius", "refreshMinutes": 30 }
 ```
 
 The icons are Google's filled Material Symbols (Apache 2.0), inlined in
 `weather.js` so the TV never fetches them.
 
-`config.json` is public, so use city-level coordinates (two decimals at most),
-never your exact address. Without a `weather` section the slideshow shows only
-the clock. Readings older than 3 hours, for example from the offline cache,
-are hidden rather than shown stale.
+`config.json` is public, so keep its fallback location to city level (two
+decimals at most), never your exact address. Readings older than 3 hours, for
+example from the offline cache, are hidden rather than shown stale.
 
 ### Missing photos
 

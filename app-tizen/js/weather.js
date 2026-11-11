@@ -1,7 +1,6 @@
 // Weather shared by every module: current conditions plus a 7-day forecast
-// from Open-Meteo (free, no API key). Configured by the top-level "weather"
-// section of config.json:
-//   latitude, longitude   location (public: keep it to city precision)
+// from Open-Meteo (free, no API key), for the location from GTV.location.
+// Units come from Settings, else the "weather" section of config.json:
 //   units                 "celsius" (default) or "fahrenheit"
 //   refreshMinutes        how often to re-fetch while something is listening
 //
@@ -18,18 +17,27 @@
   let timer = null;
 
   function settings() {
-    return (GTV.config && GTV.config.weather) || null;
+    return (GTV.config && GTV.config.weather) || {};
   }
 
-  function forecastUrl(cfg) {
+  function units() {
+    return GTV.prefs.get('units') || settings().units || 'celsius';
+  }
+
+  // Two decimals (about 1 km) is plenty for weather.
+  function coord(value) {
+    return Math.round(value * 100) / 100;
+  }
+
+  function forecastUrl(loc) {
     return (
       'https://api.open-meteo.com/v1/forecast' +
-      '?latitude=' + encodeURIComponent(cfg.latitude) +
-      '&longitude=' + encodeURIComponent(cfg.longitude) +
+      '?latitude=' + coord(loc.latitude) +
+      '&longitude=' + coord(loc.longitude) +
       '&current=temperature_2m,weather_code,is_day' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
       '&forecast_days=7&timezone=auto&timeformat=unixtime' +
-      '&temperature_unit=' + (cfg.units === 'fahrenheit' ? 'fahrenheit' : 'celsius')
+      '&temperature_unit=' + (units() === 'fahrenheit' ? 'fahrenheit' : 'celsius')
     );
   }
 
@@ -55,10 +63,17 @@
   }
 
   function refresh() {
-    const cfg = settings();
-    GTV.data
-      .fetchJson(forecastUrl(cfg))
+    GTV.location
+      .get()
+      .then((loc) => {
+        if (!loc) return null;
+        return GTV.data.fetchJson(forecastUrl(loc));
+      })
       .then((body) => {
+        if (!body) {
+          publish(null);
+          return;
+        }
         const data = parse(body);
         // A cached copy from long ago is worse than showing nothing.
         publish(Date.now() - data.current.time < STALE_MS ? data : null);
@@ -118,16 +133,18 @@
     );
   }
 
-  GTV.weather = {
-    configured: function () {
-      const cfg = settings();
-      return !!(cfg && cfg.latitude != null && cfg.longitude != null);
-    },
+  // A new location or unit in Settings refetches straight away.
+  GTV.location.onChange(() => {
+    if (timer) refresh();
+  });
+  GTV.prefs.onChange((key) => {
+    if (key === 'units' && timer) refresh();
+  });
 
+  GTV.weather = {
     // Calls fn now (if there's data) and after every refresh. Returns an
     // unsubscribe function. Fetching only runs while someone is subscribed.
     subscribe: function (fn) {
-      if (!GTV.weather.configured()) return function () {};
       listeners.push(fn);
       if (latest) fn(latest);
       if (!timer) {
@@ -145,6 +162,8 @@
       };
     },
 
+    // "celsius" or "fahrenheit", as currently in effect.
+    units: units,
     icon: icon,
     label: function (code) {
       return LABELS[kind(code)];
