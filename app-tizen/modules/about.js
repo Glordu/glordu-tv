@@ -13,6 +13,13 @@
     list.appendChild(dd);
   }
 
+  // A short label for a fetched URL: "Weather" for the forecast, else the
+  // file name without its query string.
+  function shortName(url) {
+    if (url.indexOf('api.open-meteo.com') > -1) return 'Weather';
+    return url.split('?')[0].split('/').pop() || url;
+  }
+
   function describe(entry) {
     const when = entry.at ? new Date(entry.at).toLocaleString() : 'never';
     if (entry.source === 'network') return 'live, fetched ' + when;
@@ -48,7 +55,7 @@
         // Not on a TV.
       }
       Object.keys(ctx.data.log).forEach((url) => {
-        row(list, url.split('/').pop(), describe(ctx.data.log[url]));
+        row(list, shortName(url), describe(ctx.data.log[url]));
       });
     },
   });

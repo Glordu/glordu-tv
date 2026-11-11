@@ -293,9 +293,11 @@ body {
 
 /* About */
 
+/* The label column is capped: an unbounded max-content column once grew
+   to fit a long label and pushed every value off-screen. */
 .about dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: minmax(0, 16rem) 1fr;
   margin: 0 0 3rem;
   font-size: 1.2rem;
 }
