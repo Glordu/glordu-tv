@@ -11,6 +11,10 @@
 // A photo is only shown once it has fully loaded, so a dead link never
 // reaches the screen: the current photo stays up and the next one is tried.
 //
+// Photos play as a loop: all of them shuffled once, then walked in order.
+// Left on the first photo wraps to the last; finishing the loop going
+// forward reshuffles for the next one.
+//
 // Remote: Right/Left next/previous, OK or Play/Pause pauses,
 // Up/Down/Info hides the clock and weather.
 (function () {
@@ -21,7 +25,6 @@
   const MIN_PHOTO_WIDTH = 640;
   const MAX_CONSECUTIVE_FAILS = 10;
   const RETRY_MS = 60 * 1000;
-  const HISTORY_LIMIT = 50;
 
   function shuffled(count, avoidFirst) {
     const order = [];
@@ -32,7 +35,7 @@
       order[i] = order[j];
       order[j] = tmp;
     }
-    // Don't repeat the last photo of the previous round.
+    // Don't repeat the last photo of the previous loop.
     if (count > 1 && order[0] === avoidFirst) order.push(order.shift());
     return order;
   }
@@ -60,9 +63,10 @@
     this.refreshMs = (cfg.refreshMinutes || 360) * 60 * 1000;
 
     this.images = [];
-    this.queue = [];
-    this.history = [];
-    this.historyPos = -1;
+    this.listKey = ''; // the loaded list's URLs, to tell a changed list apart
+    this.order = []; // the loop: indexes into images, shuffled
+    this.pos = -1; // where in the loop the current photo is
+    this.wrappedBack = false; // went left past the first photo
     this.broken = new Set();
     this.fails = 0;
     this.paused = false;
@@ -129,13 +133,18 @@
         const list = ((doc && doc.images) || []).filter((item) => item && item.url);
         if (!list.length) throw new Error('The images list is empty');
         const first = !this.images.length;
-        // Start a fresh round with the new list; the current photo stays up
-        // until its timer runs out.
+        const key = list.map((item) => item.url).join('\n');
         this.images = list;
-        this.queue = [];
-        this.history = [];
-        this.historyPos = -1;
-        this.broken.clear();
+        // The periodic re-read usually returns the same list: keep the loop
+        // so Left still goes back through what was shown. A changed list
+        // starts a new loop; the photo on screen stays until its timer ends.
+        if (key !== this.listKey) {
+          this.listKey = key;
+          this.order = shuffled(list.length, -1);
+          this.pos = -1;
+          this.wrappedBack = false;
+          this.broken.clear();
+        }
         if (first) this.next();
       })
       .catch((err) => {
@@ -148,52 +157,49 @@
       });
   };
 
-  Ambient.prototype.pick = function () {
-    if (this.broken.size >= this.images.length) this.broken.clear();
-    for (let guard = 0; guard <= this.images.length; guard++) {
-      if (!this.queue.length) {
-        const last = this.history.length ? this.history[this.history.length - 1] : -1;
-        this.queue = shuffled(this.images.length, last);
+  // Move through the loop by `dir` (+1 or -1), skipping known-broken photos.
+  // `instant` (◀ ▶ on the remote) swaps without the crossfade; the automatic
+  // change fades.
+  Ambient.prototype.step = function (dir, instant) {
+    const n = this.order.length;
+    if (!n) return;
+    if (this.broken.size >= n) this.broken.clear();
+    for (let tries = 0; tries < n; tries++) {
+      this.pos += dir;
+      if (this.pos >= n) {
+        // Past the end going forward. If we got here by wrapping left, this
+        // is just the way back to the start; otherwise the loop is done.
+        if (this.wrappedBack) this.wrappedBack = false;
+        else this.order = shuffled(n, this.order[n - 1]);
+        this.pos = 0;
+      } else if (this.pos < 0) {
+        this.pos = n - 1;
+        this.wrappedBack = true;
       }
-      const index = this.queue.shift();
-      if (!this.broken.has(index)) return index;
+      if (!this.broken.has(this.order[this.pos])) break;
     }
-    return 0;
+    this.display(this.order[this.pos], instant, dir);
   };
 
-  // `instant` (◀ ▶ on the remote) swaps photos without the crossfade; the
-  // automatic change fades.
   Ambient.prototype.next = function (instant) {
-    if (!this.images.length) return;
-    if (this.historyPos < this.history.length - 1) {
-      this.historyPos++;
-    } else {
-      this.history.push(this.pick());
-      if (this.history.length > HISTORY_LIMIT) this.history.shift();
-      this.historyPos = this.history.length - 1;
-    }
-    this.display(this.history[this.historyPos], instant);
+    this.step(1, instant);
   };
 
   Ambient.prototype.previous = function (instant) {
-    if (this.historyPos <= 0) {
-      this.schedule(); // nothing earlier, but a key press still restarts the timer
-      return;
-    }
-    this.historyPos--;
-    this.display(this.history[this.historyPos], instant);
+    this.step(-1, instant);
   };
 
+  // The photo after the current one, to load ahead; null when finishing the
+  // loop will reshuffle and the next photo isn't known yet.
   Ambient.prototype.upcoming = function () {
-    if (this.historyPos < this.history.length - 1) return this.history[this.historyPos + 1];
-    if (!this.queue.length) this.queue = shuffled(this.images.length, this.history[this.historyPos]);
-    return this.queue[0];
+    if (this.pos + 1 < this.order.length) return this.order[this.pos + 1];
+    return this.wrappedBack ? this.order[0] : null;
   };
 
   // Load the photo off-screen first so the crossfade never shows a half-drawn
   // image. The pending automatic change is cancelled now and a full interval
   // starts once the photo is up, so a remote press never gets cut short.
-  Ambient.prototype.display = function (index, instant) {
+  Ambient.prototype.display = function (index, instant, dir) {
     const token = ++this.token;
     const item = this.images[index];
     clearTimeout(this.timer);
@@ -201,8 +207,6 @@
     const skip = () => {
       if (this.dead || token !== this.token) return;
       this.broken.add(index);
-      this.history.splice(this.historyPos, 1);
-      this.historyPos--;
       this.fails++;
       if (this.fails >= MAX_CONSECUTIVE_FAILS) {
         this.fails = 0;
@@ -210,7 +214,7 @@
         this.timer = setTimeout(() => this.next(), RETRY_MS);
         return;
       }
-      this.next(instant);
+      this.step(dir || 1, instant); // keep going the way the viewer was going
     };
     img.onerror = skip;
     img.onload = () => {
