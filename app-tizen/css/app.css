@@ -1,7 +1,9 @@
-/* Sized in rem off the viewport height: 1rem = 20px at 1080p, whatever the
-   screen. Flexbox `gap` is avoided: the TV's Chromium predates it. */
+/* Sized in rem off the viewport width: 1rem = 20px at 1920 wide, whatever
+   the screen. Width, not height: the TV's on-screen keyboard shrinks the
+   viewport's height, which would shrink everything with it. Flexbox `gap` is
+   avoided: the TV's Chromium predates it. */
 html {
-  font-size: calc(100vh / 54);
+  font-size: calc(100vw / 96);
 }
 
 html,
