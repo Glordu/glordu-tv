@@ -208,8 +208,9 @@ The app then appears in the TV's Apps list. You can pin it to the home bar.
 
 ### On the TV
 
-- Turn off **Settings → General → Eco Solution → Auto Power Off**, or the TV
-  switches off after a few hours without remote input. The app already keeps
-  the TV's screensaver away while the slideshow runs.
+- The app keeps the TV's screensaver away while the slideshow runs.
+  **Settings → General → Eco Solution → Auto Power Off** stays on by choice,
+  so the TV still switches itself off after a few hours without remote input
+  rather than running all day.
 - Sideloaded apps can disappear after a TV firmware update. Reinstall with
   step 4.
