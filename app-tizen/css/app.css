@@ -74,10 +74,13 @@ body {
   opacity: 0;
 }
 
+/* Shadows keep text readable on bright photos. A tight, dark shadow hugs
+   the glyph edges, plus a faint wide one for contrast; a single wide blur
+   made the edges look soft once the TV upscaled the 1080p app to 4K. */
 .ambient-corner,
 .ambient-status {
   position: absolute;
-  text-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.6);
+  text-shadow: 0 0 0.1rem rgba(0, 0, 0, 0.55), 0 0.05rem 0.6rem rgba(0, 0, 0, 0.25);
 }
 
 /* Temperature, icon and clock in the bottom-right corner, as on the
@@ -114,7 +117,7 @@ body {
   height: var(--icon-size);
   margin-left: 0.5rem;
   vertical-align: baseline;
-  filter: drop-shadow(0 0.1rem 0.4rem rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 0.1rem rgba(0, 0, 0, 0.55)) drop-shadow(0 0.05rem 0.6rem rgba(0, 0, 0, 0.25));
 }
 
 .ambient-clock {
