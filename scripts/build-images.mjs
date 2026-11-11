@@ -14,18 +14,34 @@ const UPSTREAM = 'https://raw.githubusercontent.com/dconnolly/chromecast-backgro
 const SOURCE = 'https://github.com/dconnolly/chromecast-backgrounds';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'docs', 'v1', 'images.json');
-const CONCURRENCY = 16;
+const CONCURRENCY = 8;
+const RATE_LIMIT_RETRIES = 3;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Google rate-limits (429) after many requests from one address. A
+// rate-limited photo isn't dead, so it is retried and, failing that, kept.
 async function isImage(url) {
-  try {
-    const res = await fetch(url);
-    await res.arrayBuffer();
-    const type = res.headers.get('content-type') || '';
-    return res.ok && type.startsWith('image/');
-  } catch {
-    return false;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url);
+      await res.arrayBuffer();
+      if (res.status === 429) {
+        if (attempt < RATE_LIMIT_RETRIES) {
+          await sleep(5000 * (attempt + 1));
+          continue;
+        }
+        rateLimited++;
+        return true;
+      }
+      const type = res.headers.get('content-type') || '';
+      return res.ok && type.startsWith('image/');
+    } catch {
+      return false;
+    }
   }
 }
+let rateLimited = 0;
 
 async function main() {
   const res = await fetch(UPSTREAM);
@@ -56,6 +72,9 @@ async function main() {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(doc, null, 1) + '\n');
   console.log(`${images.length} of ${upstream.length} images alive -> ${path.relative(ROOT, OUT)}`);
+  if (rateLimited) {
+    console.log(`${rateLimited} were rate-limited and kept unchecked; re-run later to verify them.`);
+  }
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
