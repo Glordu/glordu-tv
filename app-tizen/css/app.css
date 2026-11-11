@@ -1,0 +1,202 @@
+/* Sized in rem off the viewport height: 1rem = 20px at 1080p, whatever the
+   screen. Flexbox `gap` is avoided: the TV's Chromium predates it. */
+html {
+  font-size: calc(100vh / 54);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  font-family: 'SamsungOne', 'Roboto', 'Segoe UI', sans-serif;
+}
+
+#app,
+.screen {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.boot {
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  text-align: center;
+  font-size: 1.6rem;
+  opacity: 0.6;
+}
+
+.hint {
+  font-size: 1.1rem;
+  opacity: 0.55;
+}
+
+/* Ambient */
+
+.ambient-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.ambient-layer.is-visible {
+  opacity: 1;
+}
+
+.ambient-shade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 30%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+}
+
+.ambient-overlay {
+  transition: opacity 0.6s;
+}
+
+.ambient-overlay.is-hidden {
+  opacity: 0;
+}
+
+.ambient-clock,
+.ambient-credit,
+.ambient-status {
+  position: absolute;
+  text-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.6);
+}
+
+.ambient-clock {
+  left: 3.2rem;
+  bottom: 2.4rem;
+  font-size: 4.4rem;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+.ambient-credit {
+  right: 3.2rem;
+  bottom: 3.1rem;
+  font-size: 1.15rem;
+  opacity: 0.85;
+}
+
+.ambient-status {
+  top: 2.4rem;
+  right: 3.2rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.45);
+  font-size: 1.15rem;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.ambient-status.is-visible {
+  opacity: 1;
+}
+
+/* Home */
+
+.home,
+.about {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 4rem 5rem;
+  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
+}
+
+.home-title,
+.about h1 {
+  margin: 0 0 3rem;
+  font-size: 2.6rem;
+  font-weight: 400;
+}
+
+.home-tiles {
+  display: flex;
+  margin: 0 -0.8rem 3rem;
+}
+
+.tile {
+  width: 18rem;
+  margin: 0 0.8rem;
+  padding: 2rem 1.6rem;
+  border: 0.15rem solid transparent;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.07);
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.tile.is-focused {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.06);
+}
+
+.tile-title {
+  font-size: 1.7rem;
+}
+
+.tile-desc {
+  margin-top: 0.5rem;
+  font-size: 1.1rem;
+  opacity: 0.65;
+}
+
+/* About */
+
+.about dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  margin: 0 0 3rem;
+  font-size: 1.2rem;
+}
+
+.about dt,
+.about dd {
+  margin: 0;
+  padding: 0.5rem 2rem 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  word-break: break-all;
+}
+
+.about dt {
+  opacity: 0.6;
+}
+
+/* Toast */
+
+#toast {
+  position: absolute;
+  bottom: 3rem;
+  left: 50%;
+  padding: 0.8rem 1.4rem;
+  border-radius: 0.5rem;
+  background: rgba(20, 20, 20, 0.9);
+  font-size: 1.2rem;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+#toast.is-visible {
+  opacity: 1;
+}

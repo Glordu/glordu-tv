@@ -1,0 +1,14 @@
+{
+ "startModule": "ambient",
+ "modules": {
+  "ambient": {
+   "images": "images.json",
+   "intervalSeconds": 60,
+   "fadeSeconds": 2,
+   "clock": "24h",
+   "showCredits": true,
+   "kenBurns": false,
+   "refreshMinutes": 360
+  }
+ }
+}

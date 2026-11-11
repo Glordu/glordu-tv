@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Glordu TV</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Samsung's TV APIs. Only exists on the TV; harmless 404 in a browser. -->
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
+</head>
+<body>
+  <div id="app"><div class="boot">Loading…</div></div>
+  <div id="toast"></div>
+
+  <!-- Classic scripts, not ES modules: the packaged app is served from
+       file://, where module scripts are blocked. Order matters. -->
+  <script src="js/settings.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/data.js"></script>
+  <script src="platform/browser.js"></script>
+  <script src="platform/tizen.js"></script>
+  <script src="modules/home.js"></script>
+  <script src="modules/ambient.js"></script>
+  <script src="modules/about.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "glordu-tv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal TV app: ambient photo slideshow and small tools.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "serve": "node scripts/serve.mjs",
+    "images": "node scripts/build-images.mjs",
+    "backup": "node scripts/backup-images.mjs",
+    "icon": "node scripts/make-icon.mjs"
+  }
+}

@@ -1,0 +1,11 @@
+# Local photo backup (scripts/backup-images.mjs)
+backup/
+
+# Tizen build output and signing
+app-tizen/.buildResult/
+app-tizen/.sign/
+app-tizen/author-signature.xml
+app-tizen/signature1.xml
+*.wgt
+
+node_modules/
