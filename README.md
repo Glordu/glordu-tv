@@ -147,19 +147,25 @@ These steps have not been run against the TV yet.
 ### 1. Developer Mode on the TV
 
 1. Note your PC's local IP (`ipconfig`, IPv4 address).
-2. On the TV open **Apps**, then type `1 2 3 4 5` with the remote's on-screen number pad.
+2. On the TV open **Apps**, then type `1 2 3 4 5`. The Smart Remote's on-screen
+   number pad doesn't register on this TV; use the number pad of the
+   **SmartThings** phone app's remote instead.
 3. Switch **Developer mode** to On, enter the PC's IP, and confirm.
 4. Hold the power button until the TV fully restarts.
 5. Note the TV's IP: **Settings → General → Network → Network Status → IP Settings**.
 
 ### 2. Tizen Studio on the PC
 
-1. Install [Tizen Studio](https://developer.tizen.org/development/tizen-studio/download)
-   (the "with IDE" installer is easiest).
+1. Install Tizen Studio 6.1 (the version Samsung's
+   [TV SDK guide](https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/installing-tv-sdk.html)
+   links to) with the IDE installer:
+   [`web-ide_Tizen_Studio_6.1_windows-64.exe`](https://download.tizen.org/sdk/Installer/tizen-studio_6.1/web-ide_Tizen_Studio_6.1_windows-64.exe).
+   The IDE includes the Certificate Manager used in step 3.
 2. In **Package Manager**:
    - Under *Main SDK*, install **Tizen SDK tools**.
-   - Under *Extension SDK*, install **TV Extensions-6.0** (2021 models run Tizen 6.0)
-     and **Samsung Certificate Extension**.
+   - Under *Extension SDK*, install **TV Extensions** (if several versions are
+     listed, take the newest) and **Samsung Certificate Extension** (2.0.73 or
+     newer: older versions can no longer create certificates).
 3. Add `C:\tizen-studio\tools` and `C:\tizen-studio\tools\ide\bin` to `PATH`
    for `sdb` and the `tizen` CLI.
 
