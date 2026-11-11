@@ -1,17 +1,23 @@
-// Weather shared by every module: current conditions plus a 7-day forecast
-// from Open-Meteo (free, no API key), for the location from GTV.location.
-// Units come from Settings, else the "weather" section of config.json:
+// Weather shared by every module: current conditions plus daily weather from
+// PAST_DAYS ago to FORECAST_DAYS ahead, from Open-Meteo (free, no API key),
+// for the location from GTV.location. One request serves the slideshow
+// corner and the Weather page. Units come from Settings, else the "weather"
+// section of config.json:
 //   units                 "celsius" (default) or "fahrenheit"
 //   refreshMinutes        how often to re-fetch while something is listening
 //
 // Modules call GTV.weather.subscribe(fn); fn gets
-//   { current: { temperature, code, isDay, time }, daily: [{ time, code, max, min, rain }] }
-// (times are JS millisecond timestamps), or null when weather is unavailable.
+//   { timezone, current: { temperature, code, isDay, time },
+//     daily: [{ time, code, max, min, rainChance, rain, wind }] }
+// (times are JS millisecond timestamps of local midnight; rain in mm or
+// inches, wind in km/h or mph), or null when weather is unavailable.
 (function () {
   'use strict';
 
   const GTV = window.GTV;
   const STALE_MS = 3 * 60 * 60 * 1000; // hide readings older than this
+  const PAST_DAYS = 28;
+  const FORECAST_DAYS = 16; // Open-Meteo's maximum
   const listeners = [];
   let latest = null;
   let timer = null;
@@ -30,15 +36,23 @@
   }
 
   function forecastUrl(loc) {
+    const imperial = units() === 'fahrenheit';
     return (
       'https://api.open-meteo.com/v1/forecast' +
       '?latitude=' + coord(loc.latitude) +
       '&longitude=' + coord(loc.longitude) +
       '&current=temperature_2m,weather_code,is_day' +
-      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
-      '&forecast_days=7&timezone=auto&timeformat=unixtime' +
-      '&temperature_unit=' + (units() === 'fahrenheit' ? 'fahrenheit' : 'celsius')
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max' +
+      '&past_days=' + PAST_DAYS + '&forecast_days=' + FORECAST_DAYS +
+      '&timezone=auto&timeformat=unixtime' +
+      '&temperature_unit=' + (imperial ? 'fahrenheit' : 'celsius') +
+      '&precipitation_unit=' + (imperial ? 'inch' : 'mm') +
+      '&wind_speed_unit=' + (imperial ? 'mph' : 'kmh')
     );
+  }
+
+  function column(d, name, i) {
+    return d[name] ? d[name][i] : null;
   }
 
   function parse(body) {
@@ -49,9 +63,12 @@
       code: d.weather_code[i],
       max: d.temperature_2m_max[i],
       min: d.temperature_2m_min[i],
-      rain: d.precipitation_probability_max ? d.precipitation_probability_max[i] : null,
+      rainChance: column(d, 'precipitation_probability_max', i),
+      rain: column(d, 'precipitation_sum', i),
+      wind: column(d, 'wind_speed_10m_max', i),
     }));
     return {
+      timezone: body.timezone || null,
       current: { temperature: c.temperature_2m, code: c.weather_code, isDay: c.is_day === 1, time: c.time * 1000 },
       daily: daily,
     };

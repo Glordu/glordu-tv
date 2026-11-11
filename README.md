@@ -47,6 +47,7 @@ Its settings come from `modules.<id>` in `config.json`.
 |-----------|--------------|
 | `ambient` | Photo slideshow with weather and clock in the bottom-right corner. Right/Left: next/previous photo. OK or Play/Pause: pause. Up/Down/Info: hide the clock and weather. |
 | `home`    | Launcher tiles. Back from here exits. |
+| `weather` | Daily weather a week at a time, starting with today: icon, high/low, rain and wind. ◀ ▶ page from 4 weeks back to the end of the 16-day forecast. Past days show the rain that fell, future days the chance of rain. |
 | `settings` | Location, time zone, temperature units and clock format, saved on the TV. |
 | `about`   | Version, location and time zone in use, and whether each data file came live or from the offline copy. |
 
@@ -74,9 +75,10 @@ mapped in `platform/tizen.js`.
 
 ### Weather
 
-`js/weather.js` is shared by any module that wants weather. It returns current
-conditions plus a 7-day forecast, ready for a future forecast page, for the
-location from Settings. Data comes from [Open-Meteo](https://open-meteo.com/),
+`js/weather.js` is shared by any module that wants weather. One request every
+30 minutes returns current conditions plus daily weather from 4 weeks ago to
+16 days ahead (about 2 KB), for the location from Settings; the slideshow
+corner and the Weather page both read it. Data comes from [Open-Meteo](https://open-meteo.com/),
 which is free for personal use and needs no API key, so nothing secret goes in
 this public repo. `config.json` holds defaults:
 

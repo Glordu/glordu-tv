@@ -190,6 +190,159 @@ body {
   opacity: 0.65;
 }
 
+/* Weather page */
+
+.forecast {
+  padding: 4rem 5rem;
+  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
+}
+
+.forecast h1 {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 400;
+}
+
+.forecast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.4rem;
+}
+
+.forecast-place {
+  margin-top: 0.4rem;
+  font-size: 1.3rem;
+  opacity: 0.65;
+}
+
+.forecast-now {
+  display: flex;
+  align-items: center;
+  font-size: 1.4rem;
+}
+
+.forecast-now .weather-icon {
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.forecast-now-temp {
+  margin: 0 1.2rem 0 0.8rem;
+  font-size: 3.2rem;
+}
+
+.forecast-now-label {
+  opacity: 0.7;
+}
+
+.forecast-range {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 1.4rem;
+  font-size: 1.5rem;
+}
+
+.forecast-arrow {
+  opacity: 0.8;
+}
+
+.forecast-arrow.is-disabled {
+  opacity: 0.15;
+}
+
+.forecast-page {
+  margin: 0 1rem;
+}
+
+.forecast-dates {
+  margin-right: 1rem;
+  font-size: 1.2rem;
+  opacity: 0.55;
+}
+
+.forecast-days {
+  display: flex;
+  margin: 0 -0.5rem 2.4rem;
+}
+
+.forecast-day {
+  flex: 1;
+  min-width: 0;
+  margin: 0 0.5rem;
+  padding: 1.6rem 1rem;
+  border: 0.15rem solid transparent;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.forecast-day.is-today {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.forecast-day.is-past {
+  opacity: 0.6;
+}
+
+.forecast-day.is-empty {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.forecast-empty {
+  margin-top: 6rem;
+  font-size: 1.1rem;
+  opacity: 0.4;
+}
+
+.forecast-day-name {
+  font-size: 1.5rem;
+}
+
+.forecast-day-date {
+  margin-top: 0.2rem;
+  font-size: 1.1rem;
+  opacity: 0.6;
+}
+
+.forecast-day-icon .weather-icon {
+  width: 4.4rem;
+  height: 4.4rem;
+  margin: 1.2rem 0 0.4rem;
+}
+
+.forecast-day-label {
+  min-height: 2.6rem;
+  font-size: 1.05rem;
+  opacity: 0.7;
+}
+
+.forecast-day-temps {
+  margin: 0.8rem 0 1rem;
+}
+
+.forecast-max {
+  font-size: 2rem;
+}
+
+.forecast-min {
+  margin-left: 0.8rem;
+  font-size: 1.5rem;
+  opacity: 0.55;
+}
+
+.forecast-day-detail {
+  margin-top: 0.3rem;
+  font-size: 1.05rem;
+  opacity: 0.65;
+}
+
+.forecast-status {
+  font-size: 1.3rem;
+  opacity: 0.75;
+}
+
 /* Settings */
 
 .settings {
