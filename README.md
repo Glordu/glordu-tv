@@ -189,26 +189,20 @@ listed.
 
 ### 4. Build, install, run
 
-From the repo root:
+With the TV connected (`sdb connect <tv-ip>`), from the repo root:
 
 ```bash
-tizen build-web -- app-tizen
+npm run deploy
 ```
 
-```bash
-tizen package -t wgt -s glordu -- app-tizen/.buildResult
-```
+`scripts/deploy-tv.mjs` builds, signs with the `glordu` profile, installs and
+launches the app. It picks the connected TV automatically; pass a device name
+(`npm run deploy -- UE55AU7172UXXH`) if several are connected. It also renames
+the package to `GlorduTV.wgt`: the TV's installer fails without an error
+message on the default name, `Glordu TV.wgt`, because of the space.
 
-```bash
-tizen install -n "Glordu TV.wgt" -t <device-name> -- app-tizen/.buildResult
-```
-
-```bash
-tizen run -p glordutv01.GlorduTV -t <device-name>
-```
-
-Alternatively, in Tizen Studio: **File → Import → Tizen → Tizen Project**,
-pick `app-tizen/`, then right-click the project → **Run As → Tizen Web Application**.
+Override `TIZEN_STUDIO` (default `C:\tizen-studio`) or `TIZEN_PROFILE`
+(default `glordu`) if yours differ.
 
 The app then appears in the TV's Apps list. You can pin it to the home bar.
 
