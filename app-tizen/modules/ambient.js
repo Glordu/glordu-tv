@@ -161,7 +161,9 @@
     return 0;
   };
 
-  Ambient.prototype.next = function () {
+  // `instant` (◀ ▶ on the remote) swaps photos without the crossfade; the
+  // automatic change fades.
+  Ambient.prototype.next = function (instant) {
     if (!this.images.length) return;
     if (this.historyPos < this.history.length - 1) {
       this.historyPos++;
@@ -170,13 +172,16 @@
       if (this.history.length > HISTORY_LIMIT) this.history.shift();
       this.historyPos = this.history.length - 1;
     }
-    this.display(this.history[this.historyPos]);
+    this.display(this.history[this.historyPos], instant);
   };
 
-  Ambient.prototype.previous = function () {
-    if (this.historyPos <= 0) return;
+  Ambient.prototype.previous = function (instant) {
+    if (this.historyPos <= 0) {
+      this.schedule(); // nothing earlier, but a key press still restarts the timer
+      return;
+    }
     this.historyPos--;
-    this.display(this.history[this.historyPos]);
+    this.display(this.history[this.historyPos], instant);
   };
 
   Ambient.prototype.upcoming = function () {
@@ -185,8 +190,10 @@
     return this.queue[0];
   };
 
-  // Load the photo off-screen first so the crossfade never shows a half-drawn image.
-  Ambient.prototype.display = function (index) {
+  // Load the photo off-screen first so the crossfade never shows a half-drawn
+  // image. The pending automatic change is cancelled now and a full interval
+  // starts once the photo is up, so a remote press never gets cut short.
+  Ambient.prototype.display = function (index, instant) {
     const token = ++this.token;
     const item = this.images[index];
     clearTimeout(this.timer);
@@ -203,7 +210,7 @@
         this.timer = setTimeout(() => this.next(), RETRY_MS);
         return;
       }
-      this.next();
+      this.next(instant);
     };
     img.onerror = skip;
     img.onload = () => {
@@ -213,7 +220,7 @@
         return;
       }
       this.fails = 0;
-      this.swap(item);
+      this.swap(item, instant);
       this.setStatus(this.paused ? 'Paused' : '');
       this.schedule();
       this.prefetch();
@@ -221,19 +228,25 @@
     img.src = item.url;
   };
 
-  Ambient.prototype.swap = function (item) {
+  Ambient.prototype.swap = function (item, instant) {
     const incoming = this.layers[1 - this.front];
     const outgoing = this.layers[this.front];
+    const fade = 'opacity ' + this.fadeSeconds + 's ease-in-out';
+    const zoom = 'transform ' + (this.intervalMs / 1000 + this.fadeSeconds * 2) + 's linear';
+    const animate = (withFade) =>
+      [withFade ? fade : null, this.kenBurns ? zoom : null].filter(Boolean).join(', ') || 'none';
+
+    // Reset the incoming layer with no transition, so it starts from scratch
+    // even if a previous fade or zoom on it was still running.
+    incoming.style.transition = 'none';
     incoming.style.backgroundImage = cssUrl(item.url);
-    if (this.kenBurns) {
-      const zoomSeconds = this.intervalMs / 1000 + this.fadeSeconds * 2;
-      incoming.style.transition = 'none';
-      incoming.style.transform = 'scale(1)';
-      void incoming.offsetWidth; // commit the reset before animating
-      incoming.style.transition =
-        'opacity ' + this.fadeSeconds + 's ease-in-out, transform ' + zoomSeconds + 's linear';
-      incoming.style.transform = 'scale(1.08)';
-    }
+    if (this.kenBurns) incoming.style.transform = 'scale(1)';
+    void incoming.offsetWidth; // commit the reset before animating
+
+    // An instant swap also cuts any fade still running on the outgoing layer.
+    incoming.style.transition = animate(!instant);
+    outgoing.style.transition = instant ? 'none' : animate(true);
+    if (this.kenBurns) incoming.style.transform = 'scale(1.08)';
     incoming.classList.add('is-visible');
     outgoing.classList.remove('is-visible');
     this.front = 1 - this.front;
@@ -261,11 +274,11 @@
     switch (key) {
       case 'RIGHT':
       case 'FAST_FORWARD':
-        this.next();
+        this.next(true);
         return true;
       case 'LEFT':
       case 'REWIND':
-        this.previous();
+        this.previous(true);
         return true;
       case 'ENTER':
       case 'PLAY_PAUSE':
