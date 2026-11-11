@@ -79,34 +79,43 @@ body {
 }
 
 /* Temperature, icon and clock in the bottom-right corner, as on the
-   Chromecast. Everything sits on the clock's baseline: the digits share one
-   bottom line, and an inline SVG's baseline is its bottom edge. */
+   Chromecast. One line of inline content on the clock's baseline: the icon
+   rests on that line (an inline SVG's baseline is its bottom edge) and the
+   temperature is raised so its digits are centered on the icon. Digits are
+   taken as 0.72em tall, typical for sans-serif fonts. */
 .ambient-corner {
+  --temp-size: 2.1rem;
+  --icon-size: 2.5rem;
   right: 3.2rem;
   bottom: 2.4rem;
-  display: flex;
-  align-items: baseline;
+  font-size: 4.6rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.ambient-weather {
-  display: flex;
-  align-items: baseline;
-  font-size: 2.1rem;
+.ambient-weather,
+.ambient-clock {
+  display: inline;
 }
 
 .ambient-weather:not(:empty) {
   margin-right: 1.8rem;
 }
 
+.ambient-temp {
+  font-size: var(--temp-size);
+  vertical-align: calc(var(--icon-size) / 2 - var(--temp-size) * 0.36);
+}
+
 .ambient-weather .weather-icon {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: var(--icon-size);
+  height: var(--icon-size);
   margin-left: 0.5rem;
+  vertical-align: baseline;
   filter: drop-shadow(0 0.1rem 0.4rem rgba(0, 0, 0, 0.6));
 }
 
 .ambient-clock {
-  font-size: 4.6rem;
   letter-spacing: 0.02em;
 }
 
