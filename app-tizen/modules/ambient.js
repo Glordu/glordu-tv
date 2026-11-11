@@ -4,16 +4,21 @@
 //   intervalSeconds  time each photo stays up
 //   fadeSeconds      crossfade length
 //   clock            "24h", "12h" or false
-//   showCredits      show the photographer's name
+//   showWeather      current weather above the clock (needs config.weather)
 //   kenBurns         slow zoom on each photo
 //   refreshMinutes   how often to re-read the images list
 //
+// A photo is only shown once it has fully loaded, so a dead link never
+// reaches the screen: the current photo stays up and the next one is tried.
+//
 // Remote: Right/Left next/previous, OK or Play/Pause pauses,
-// Up/Down/Info hides the clock and credit.
+// Up/Down/Info hides the clock and weather.
 (function () {
   'use strict';
 
   const GTV = window.GTV;
+  // Smaller than this is a host's "image unavailable" placeholder, not a photo.
+  const MIN_PHOTO_WIDTH = 640;
   const MAX_CONSECUTIVE_FAILS = 10;
   const RETRY_MS = 60 * 1000;
   const HISTORY_LIMIT = 50;
@@ -59,7 +64,7 @@
     this.fadeSeconds = cfg.fadeSeconds != null ? cfg.fadeSeconds : 2;
     this.kenBurns = !!cfg.kenBurns;
     this.clockMode = cfg.clock === undefined ? '24h' : cfg.clock;
-    this.showCredits = cfg.showCredits !== false;
+    this.showWeather = cfg.showWeather !== false;
     this.imagesUrl = ctx.data.resolve(cfg.images || 'images.json');
     this.refreshMs = (cfg.refreshMinutes || 360) * 60 * 1000;
 
@@ -83,13 +88,17 @@
     this.front = 0;
     child(root, 'ambient-shade');
     this.overlay = child(root, 'ambient-overlay');
-    this.clockEl = child(this.overlay, 'ambient-clock');
-    this.creditEl = child(this.overlay, 'ambient-credit');
+    const corner = child(this.overlay, 'ambient-corner');
+    this.weatherEl = child(corner, 'ambient-weather');
+    this.clockEl = child(corner, 'ambient-clock');
     this.statusEl = child(root, 'ambient-status');
 
     if (this.clockMode) {
       this.tickClock();
       this.clockTimer = setInterval(() => this.tickClock(), 1000);
+    }
+    if (this.showWeather) {
+      this.unsubscribeWeather = GTV.weather.subscribe((data) => this.renderWeather(data));
     }
 
     this.setStatus('Loading photos…');
@@ -101,6 +110,18 @@
   Ambient.prototype.tickClock = function () {
     const text = formatTime(new Date(), this.clockMode);
     if (this.clockEl.textContent !== text) this.clockEl.textContent = text;
+  };
+
+  Ambient.prototype.renderWeather = function (data) {
+    if (!data) {
+      this.weatherEl.innerHTML = '';
+      return;
+    }
+    const now = data.current;
+    this.weatherEl.innerHTML =
+      '<span class="ambient-temp">' + GTV.weather.formatTemp(now.temperature) + '</span>' +
+      GTV.weather.icon(now.code, now.isDay);
+    this.weatherEl.title = GTV.weather.label(now.code);
   };
 
   Ambient.prototype.setStatus = function (text) {
@@ -179,15 +200,7 @@
     const item = this.images[index];
     clearTimeout(this.timer);
     const img = new Image();
-    img.onload = () => {
-      if (this.dead || token !== this.token) return;
-      this.fails = 0;
-      this.swap(item);
-      this.setStatus(this.paused ? 'Paused' : '');
-      this.schedule();
-      this.prefetch();
-    };
-    img.onerror = () => {
+    const skip = () => {
       if (this.dead || token !== this.token) return;
       this.broken.add(index);
       this.history.splice(this.historyPos, 1);
@@ -200,6 +213,19 @@
         return;
       }
       this.next();
+    };
+    img.onerror = skip;
+    img.onload = () => {
+      if (this.dead || token !== this.token) return;
+      if (img.naturalWidth < MIN_PHOTO_WIDTH) {
+        skip();
+        return;
+      }
+      this.fails = 0;
+      this.swap(item);
+      this.setStatus(this.paused ? 'Paused' : '');
+      this.schedule();
+      this.prefetch();
     };
     img.src = item.url;
   };
@@ -220,7 +246,6 @@
     incoming.classList.add('is-visible');
     outgoing.classList.remove('is-visible');
     this.front = 1 - this.front;
-    this.creditEl.textContent = this.showCredits && item.author ? 'Photo: ' + item.author : '';
   };
 
   Ambient.prototype.schedule = function () {
@@ -277,6 +302,7 @@
     clearTimeout(this.retryTimer);
     clearInterval(this.clockTimer);
     clearInterval(this.refreshTimer);
+    if (this.unsubscribeWeather) this.unsubscribeWeather();
     this.ctx.platform.keepScreenOn(false);
   };
 

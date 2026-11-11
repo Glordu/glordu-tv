@@ -45,22 +45,53 @@ Its settings come from `modules.<id>` in `config.json`.
 
 | Module    | What it does |
 |-----------|--------------|
-| `ambient` | Photo slideshow. Right/Left: next/previous photo. OK or Play/Pause: pause. Up/Down/Info: hide the clock and credit. |
+| `ambient` | Photo slideshow with weather and clock in the bottom-right corner. Right/Left: next/previous photo. OK or Play/Pause: pause. Up/Down/Info: hide the clock and weather. |
 | `home`    | Launcher tiles. Back from here exits. |
 | `about`   | Version and whether each data file came live or from the offline copy. |
 
 Back from the slideshow opens Home. Back from Home exits.
+
+### Weather
+
+`js/weather.js` is shared by any module that wants weather. It returns current
+conditions plus a 7-day forecast, ready for a future forecast page. Data comes
+from [Open-Meteo](https://open-meteo.com/), which is free for personal use and
+needs no API key, so nothing secret goes in this public repo. Set the location
+in `config.json`:
+
+```json
+"weather": { "latitude": 51.51, "longitude": -0.13, "units": "celsius", "refreshMinutes": 30 }
+```
+
+The icons are Google's filled Material Symbols (Apache 2.0), inlined in
+`weather.js` so the TV never fetches them.
+
+`config.json` is public, so use city-level coordinates (two decimals at most),
+never your exact address. Without a `weather` section the slideshow shows only
+the clock. Readings older than 3 hours, for example from the offline cache,
+are hidden rather than shown stale.
+
+### Missing photos
+
+The slideshow loads each photo off-screen and only crossfades to it once it
+has fully loaded. If a link is dead, or returns a small "unavailable"
+placeholder (under 640px wide), the current photo stays up, the bad one is
+skipped for the rest of the round, and the next one is tried. After 10
+failures in a row (no network, say) it keeps the current photo and retries a
+minute later.
 
 ## Photos
 
 `docs/v1/images.json` lists photos from the
 [Chromecast backgrounds archive](https://github.com/dconnolly/chromecast-backgrounds).
 It links to Google's servers rather than hosting the photos, which belong to
-their photographers. The archive is from 2019 and its links are dying: in
+their photographers. Each entry keeps the photographer's name (`author`, null
+for 50 of them) for possible later use; the app doesn't display it. The archive is from 2019 and its links are dying: in
 November 2026, 403 of the 702 still worked.
 
 ```bash
 npm run images   # re-check upstream URLs and rewrite docs/v1/images.json
+                 # (Google rate-limits after many requests; those are kept, not dropped)
 npm run backup   # download every listed photo to ./backup (gitignored, ~143 MB)
 ```
 

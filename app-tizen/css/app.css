@@ -72,26 +72,42 @@ body {
   opacity: 0;
 }
 
-.ambient-clock,
-.ambient-credit,
+.ambient-corner,
 .ambient-status {
   position: absolute;
   text-shadow: 0 0.1rem 0.6rem rgba(0, 0, 0, 0.6);
 }
 
-.ambient-clock {
-  left: 3.2rem;
+/* Temperature, icon and clock in the bottom-right corner, as on the
+   Chromecast. Everything sits on the clock's baseline: the digits share one
+   bottom line, and an inline SVG's baseline is its bottom edge. */
+.ambient-corner {
+  right: 3.2rem;
   bottom: 2.4rem;
-  font-size: 4.4rem;
-  font-weight: 300;
-  letter-spacing: 0.05em;
+  display: flex;
+  align-items: baseline;
 }
 
-.ambient-credit {
-  right: 3.2rem;
-  bottom: 3.1rem;
-  font-size: 1.15rem;
-  opacity: 0.85;
+.ambient-weather {
+  display: flex;
+  align-items: baseline;
+  font-size: 2.1rem;
+}
+
+.ambient-weather:not(:empty) {
+  margin-right: 1.8rem;
+}
+
+.ambient-weather .weather-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: 0.5rem;
+  filter: drop-shadow(0 0.1rem 0.4rem rgba(0, 0, 0, 0.6));
+}
+
+.ambient-clock {
+  font-size: 4.6rem;
+  letter-spacing: 0.02em;
 }
 
 .ambient-status {
