@@ -1,8 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- Black from the very first frame, even before or without app.css, so a
+     slow load or broken layout never flashes white on the TV. -->
+<html lang="en" style="background:#000; color-scheme:dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <style>html, body { background: #000; color: #fff; }</style>
   <title>Glordu TV</title>
   <link rel="stylesheet" href="css/app.css">
   <!-- Samsung's TV APIs. Only exists on the TV; harmless 404 in a browser. -->

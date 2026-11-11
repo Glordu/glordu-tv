@@ -112,7 +112,8 @@
     if (name === 'clear') name = isDay ? 'sun' : 'moon';
     else if (name === 'partly') name = isDay ? 'partlyDay' : 'partlyNight';
     return (
-      '<svg class="weather-icon" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">' +
+      // width/height keep it text-sized even if the stylesheet fails to load.
+      '<svg class="weather-icon" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">' +
       '<path d="' + PATHS[name] + '"/></svg>'
     );
   }
