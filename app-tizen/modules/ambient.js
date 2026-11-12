@@ -12,6 +12,8 @@
 // reaches the screen: the current photo stays up and the next one is tried.
 //
 // Photos play as a loop: all of them shuffled once, then walked in order.
+// The loop and position are saved on the TV, so it carries on across
+// sessions and every photo shows once before any repeats.
 // Left on the first photo wraps to the last; finishing the loop going
 // forward reshuffles for the next one.
 //
@@ -26,6 +28,16 @@
   const MIN_PHOTO_WIDTH = 640;
   const MAX_CONSECUTIVE_FAILS = 10;
   const RETRY_MS = 60 * 1000;
+  // Where the loop (its order and position) is saved, so the next session
+  // carries on instead of reshuffling: every photo shows once before repeats.
+  const LOOP_KEY = 'gtv:loop';
+
+  // A short, stable id for a photo URL, to save the loop compactly.
+  function urlId(url) {
+    let h = 5381;
+    for (let i = 0; i < url.length; i++) h = ((h << 5) + h + url.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
 
   function shuffled(count, avoidFirst) {
     const order = [];
@@ -138,12 +150,12 @@
         const key = list.map((item) => item.url).join('\n');
         this.images = list;
         // The periodic re-read usually returns the same list: keep the loop
-        // so Left still goes back through what was shown. A changed list
-        // starts a new loop; the photo on screen stays until its timer ends.
+        // as it is. On the first load, or when the list changed, carry on
+        // with the saved loop; the photo on screen stays until its timer ends.
         if (key !== this.listKey) {
           this.listKey = key;
-          this.order = shuffled(list.length, -1);
-          this.pos = -1;
+          this.ids = list.map((item) => urlId(item.url));
+          this.restoreLoop();
           this.wrappedBack = false;
           this.broken.clear();
         }
@@ -157,6 +169,53 @@
           this.retryTimer = setTimeout(() => this.load(), RETRY_MS);
         }
       });
+  };
+
+  // Rebuilds the loop from the saved one: same order, same position. Photos
+  // no longer in the list drop out; photos new to the list are slotted in at
+  // random among the ones not shown yet. With nothing saved, a fresh shuffle.
+  Ambient.prototype.restoreLoop = function () {
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(LOOP_KEY));
+    } catch (err) {
+      saved = null;
+    }
+    const n = this.images.length;
+    if (!saved || !saved.order || !saved.order.length) {
+      this.order = shuffled(n, -1);
+      this.pos = -1;
+      return;
+    }
+    const indexById = {};
+    this.ids.forEach((id, i) => {
+      indexById[id] = i;
+    });
+    const order = [];
+    const used = {};
+    let pos = -1;
+    saved.order.forEach((id, k) => {
+      const i = indexById[id];
+      if (i === undefined || used[i]) return;
+      used[i] = true;
+      order.push(i);
+      if (k <= saved.pos) pos = order.length - 1;
+    });
+    for (let i = 0; i < n; i++) {
+      if (used[i]) continue;
+      const at = pos + 1 + Math.floor(Math.random() * (order.length - pos));
+      order.splice(at, 0, i);
+    }
+    this.order = order;
+    this.pos = pos;
+  };
+
+  Ambient.prototype.saveLoop = function () {
+    try {
+      localStorage.setItem(LOOP_KEY, JSON.stringify({ pos: this.pos, order: this.order.map((i) => this.ids[i]) }));
+    } catch (err) {
+      // Not saved; the next session reshuffles. Not worth interrupting for.
+    }
   };
 
   // Move through the loop by `dir` (+1 or -1), skipping known-broken photos.
@@ -180,6 +239,7 @@
       }
       if (!this.broken.has(this.order[this.pos])) break;
     }
+    this.saveLoop();
     this.display(this.order[this.pos], instant, dir);
   };
 
