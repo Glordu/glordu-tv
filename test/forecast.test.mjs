@@ -58,9 +58,13 @@ test('the page starts on now, on the day strip', () => {
 test('changing day lands on the current time of day, whatever hour was picked', () => {
   const { forecast } = page();
   forecast.onKey('UP'); // to the hours row
-  forecast.onKey('RIGHT');
-  forecast.onKey('RIGHT');
-  forecast.onKey('RIGHT');
+  // Pick another hour of today: later, unless that would pass midnight.
+  const step = hourOfDay(forecast, forecast.now) < 20 ? 'RIGHT' : 'LEFT';
+  forecast.onKey(step);
+  forecast.onKey(step);
+  forecast.onKey(step);
+  assert.equal(forecast.hours[forecast.hour].day, forecast.today, 'still today');
+  assert.notEqual(forecast.hour, forecast.now);
   forecast.onKey('DOWN'); // back to the strip
   forecast.onKey('RIGHT'); // tomorrow
   assert.equal(forecast.hours[forecast.hour].day, forecast.today + 1);
