@@ -46,6 +46,29 @@ async function isImage(url) {
 }
 let rateLimited = 0;
 
+// Builds the new list from the upstream archive (with `alive[i]` saying
+// whether entry i still works) and the previous list. Photos from other
+// sources (e.g. harvest-chromecast.mjs) are kept as they are; archive photos
+// already listed keep the date they were first added; excluded URLs (photos
+// removed on purpose) stay out.
+export function mergeArchive(upstream, alive, previous, excludedUrls, now) {
+  const excluded = new Set(excludedUrls);
+  const others = previous.images.filter((img) => img.source !== TAG);
+  const addedBefore = {};
+  previous.images.forEach((img) => {
+    if (img.source === TAG && img.added) addedBefore[img.url] = img.added;
+  });
+  const images = upstream
+    .filter((item, i) => alive[i] && !excluded.has(item.url))
+    .map(({ url, author }) => ({ url, author: author || null, source: TAG, added: addedBefore[url] || now }));
+  const doc = {
+    sources: Object.assign({}, previous.sources, { [TAG]: SOURCE }),
+    generated: now,
+    images: images.concat(others),
+  };
+  return { doc, images, others };
+}
+
 async function main() {
   const res = await fetch(UPSTREAM);
   if (!res.ok) throw new Error(`Upstream list returned ${res.status}`);
@@ -63,27 +86,9 @@ async function main() {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-  // Photos from other sources (e.g. harvest-chromecast.mjs) are kept as they
-  // are; archive photos already listed keep the date they were first added.
-  const now = new Date().toISOString();
   const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : { sources: {}, images: [] };
-  const others = previous.images.filter((img) => img.source !== TAG);
-  const addedBefore = {};
-  previous.images.forEach((img) => {
-    if (img.source === TAG && img.added) addedBefore[img.url] = img.added;
-  });
-
-  // Photos removed on purpose (e.g. duplicates) stay out.
-  const excluded = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'excluded-photos.json'), 'utf8')).map((e) => e.url));
-  const images = upstream
-    .filter((item, i) => alive[i] && !excluded.has(item.url))
-    .map(({ url, author }) => ({ url, author: author || null, source: TAG, added: addedBefore[url] || now }));
-
-  const doc = {
-    sources: Object.assign({}, previous.sources, { [TAG]: SOURCE }),
-    generated: now,
-    images: images.concat(others),
-  };
+  const excluded = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'excluded-photos.json'), 'utf8')).map((e) => e.url);
+  const { doc, images, others } = mergeArchive(upstream, alive, previous, excluded, new Date().toISOString());
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(doc, null, 1) + '\n');
   console.log(`${images.length} of ${upstream.length} archive images alive, plus ${others.length} from other sources -> ${path.relative(ROOT, OUT)}`);
@@ -92,4 +97,7 @@ async function main() {
   }
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+// Runs only from the command line, not when tests import mergeArchive.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => { console.error(err); process.exit(1); });
+}

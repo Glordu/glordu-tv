@@ -29,8 +29,9 @@ const BS = String.fromCharCode(92); // a backslash
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The page embeds its photo list as JSON.parse('<escaped JSON>').
-function photosIn(html) {
+// The page embeds its photo list as JSON.parse('<escaped JSON>'): JSON text
+// escaped again as a JavaScript string (\x22 for quotes, \/ for slashes).
+export function photosIn(html) {
   const start = html.indexOf("JSON.parse('");
   if (start < 0) throw new Error('No photo list found in the feed page; its format may have changed');
   const end = html.indexOf("')", start);
@@ -39,14 +40,29 @@ function photosIn(html) {
   // JavaScript allows escapes JSON doesn't (like \= and \'); drop their backslash.
   text = text.replace(new RegExp(BS + BS + '([^"' + BS + BS + '/bfnrtu])', 'g'), '$1');
   const entries = JSON.parse(text)[0] || [];
-  // Inside the links "=" is escaped once more, as a literal =.
+  // Inside the links "=" arrives escaped once more, as the six characters
+  // backslash-u003d.
   const unescape = (s) => s.replace(new RegExp(BS + BS + 'u([0-9a-fA-F]{4})', 'g'), (_, h) => String.fromCharCode(parseInt(h, 16)));
   return entries
     .filter((e) => typeof e[0] === 'string' && e[0].indexOf('/chromecast-private-photos/') > -1)
     .map((e) => ({ base: unescape(e[0]).replace(/=.*$/, ''), author: typeof e[1] === 'string' ? e[1] : null }));
 }
 
-const baseOf = (url) => url.replace(/=[^/]*$/, '');
+export const baseOf = (url) => url.replace(/=[^/]*$/, '');
+
+// Appends feed photos not seen before to `harvested`, skipping any in `known`
+// (already listed, or removed on purpose) and adding them to it. Returns how
+// many were new.
+export function addNew(harvested, photos, known, now) {
+  let fresh = 0;
+  for (const photo of photos) {
+    if (known.has(photo.base)) continue;
+    known.add(photo.base);
+    harvested.push({ url: photo.base + SIZE, author: photo.author, source: TAG, added: now });
+    fresh++;
+  }
+  return fresh;
+}
 
 // A tiny thumbnail is enough to tell whether a link still works.
 async function stillWorks(base) {
@@ -81,13 +97,7 @@ async function main() {
   for (let load = 1; load <= MAX_LOADS && empty < STOP_AFTER_EMPTY; load++) {
     const res = await fetch(FEED, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (!res.ok) throw new Error('Feed returned HTTP ' + res.status);
-    let fresh = 0;
-    for (const photo of photosIn(await res.text())) {
-      if (known.has(photo.base)) continue;
-      known.add(photo.base);
-      harvested.push({ url: photo.base + SIZE, author: photo.author, source: TAG, added: now });
-      fresh++;
-    }
+    const fresh = addNew(harvested, photosIn(await res.text()), known, now);
     added += fresh;
     empty = fresh ? 0 : empty + 1;
     process.stdout.write('  load ' + load + ': ' + fresh + ' new (' + harvested.length + ' from the feed)\n');
@@ -105,7 +115,10 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Runs only from the command line, not when tests import the functions above.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
