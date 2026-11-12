@@ -24,14 +24,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Google rate-limits (429) after many requests from one address. A
 // rate-limited photo isn't dead, so it is retried and, failing that, kept.
-async function isImage(url) {
+// `wait` is for tests, to skip the pauses.
+export async function isImage(url, wait = sleep) {
   for (let attempt = 0; ; attempt++) {
     try {
       const res = await fetch(url);
       await res.arrayBuffer();
       if (res.status === 429) {
         if (attempt < RATE_LIMIT_RETRIES) {
-          await sleep(5000 * (attempt + 1));
+          await wait(5000 * (attempt + 1));
           continue;
         }
         rateLimited++;

@@ -21,13 +21,36 @@ const TIZEN = path.join(STUDIO, 'tools', 'ide', 'bin', isWindows ? 'tizen.bat' :
 const SDB = path.join(STUDIO, 'tools', isWindows ? 'sdb.exe' : 'sdb');
 // The TV's installer fails silently on a package name with spaces, and the
 // default name comes from <name> in config.xml ("Glordu TV").
-const PACKAGE = 'GlorduTV.wgt';
+export const PACKAGE = 'GlorduTV.wgt';
 
-function appId() {
-  const xml = fs.readFileSync(path.join(APP, 'config.xml'), 'utf8');
+// The app id from config.xml, e.g. glordutv01.GlorduTV.
+export function appIdIn(xml) {
   const match = /<tizen:application[^>]*\bid="([^"]+)"/.exec(xml);
   if (!match) throw new Error('No tizen:application id in config.xml');
   return match[1];
+}
+
+// The TV to deploy to: the one named, or the only one in `sdb devices`
+// output, whose lines look like "192.168.0.67:26101  device  UE55AU7172UXXH".
+export function pickDevice(named, sdbOutput) {
+  if (named) return named;
+  const lines = sdbOutput
+    .split('\n')
+    .slice(1)
+    .map((line) => line.trim().split(/\s+/))
+    .filter((cols) => cols[1] === 'device');
+  if (lines.length !== 1) {
+    throw new Error(`Expected one connected TV, found ${lines.length}. Run "sdb connect <tv-ip>" or pass the device name.`);
+  }
+  return lines[0][2]; // device name, e.g. UE55AU7172UXXH
+}
+
+// Gives the one built package in `dir` the name PACKAGE.
+export function renamePackage(dir) {
+  const built = fs.readdirSync(dir).filter((f) => f.endsWith('.wgt'));
+  if (built.length !== 1) throw new Error(`Expected one .wgt in ${dir}, found ${built.length}`);
+  if (built[0] !== PACKAGE) fs.renameSync(path.join(dir, built[0]), path.join(dir, PACKAGE));
+  return path.join(dir, PACKAGE);
 }
 
 function run(cmd, args, { capture = false } = {}) {
@@ -44,28 +67,24 @@ function run(cmd, args, { capture = false } = {}) {
   return result.stdout || '';
 }
 
-function pickDevice() {
-  if (process.argv[2]) return process.argv[2];
-  const lines = run(SDB, ['devices'], { capture: true })
-    .split('\n')
-    .slice(1)
-    .map((line) => line.trim().split(/\s+/))
-    .filter((cols) => cols[1] === 'device');
-  if (lines.length !== 1) {
-    throw new Error(`Expected one connected TV, found ${lines.length}. Run "sdb connect <tv-ip>" or pass the device name.`);
-  }
-  return lines[0][2]; // device name, e.g. UE55AU7172UXXH
+function main() {
+  const device = pickDevice(process.argv[2], process.argv[2] ? '' : run(SDB, ['devices'], { capture: true }));
+  const id = appIdIn(fs.readFileSync(path.join(APP, 'config.xml'), 'utf8'));
+  console.log(`Deploying ${id} to ${device}`);
+
+  run(TIZEN, ['build-web', '--', APP]);
+  run(TIZEN, ['package', '-t', 'wgt', '-s', PROFILE, '--', OUT]);
+  renamePackage(OUT);
+  run(TIZEN, ['install', '-n', PACKAGE, '-t', device, '--', OUT]);
+  run(TIZEN, ['run', '-p', id, '-t', device]);
+  console.log('Done. The app is running on the TV.');
 }
 
-const device = pickDevice();
-const id = appId();
-console.log(`Deploying ${id} to ${device}`);
-
-run(TIZEN, ['build-web', '--', APP]);
-run(TIZEN, ['package', '-t', 'wgt', '-s', PROFILE, '--', OUT]);
-const built = fs.readdirSync(OUT).filter((f) => f.endsWith('.wgt'));
-if (built.length !== 1) throw new Error(`Expected one .wgt in ${OUT}, found ${built.length}`);
-if (built[0] !== PACKAGE) fs.renameSync(path.join(OUT, built[0]), path.join(OUT, PACKAGE));
-run(TIZEN, ['install', '-n', PACKAGE, '-t', device, '--', OUT]);
-run(TIZEN, ['run', '-p', id, '-t', device]);
-console.log('Done. The app is running on the TV.');
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+}

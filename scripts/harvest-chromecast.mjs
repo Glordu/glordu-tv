@@ -65,7 +65,7 @@ export function addNew(harvested, photos, known, now) {
 }
 
 // A tiny thumbnail is enough to tell whether a link still works.
-async function stillWorks(base) {
+export async function stillWorks(base) {
   try {
     const res = await fetch(base + '=s64');
     await res.arrayBuffer();
