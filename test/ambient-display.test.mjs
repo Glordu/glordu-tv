@@ -94,15 +94,49 @@ test('remote changes swap instantly; automatic ones fade', async () => {
   assert.match(s.layers[s.front].style.transition, /opacity 2s/);
 });
 
-test('pausing stops the automatic changes until resumed', async () => {
+test('Play/Pause stops the automatic changes until pressed again', async () => {
   const { win, s, showing } = await slideshow(photos(10));
   const first = showing();
-  s.onKey('ENTER');
+  s.onKey('PLAY_PAUSE');
   win.tick(5 * 60 * SECOND);
   assert.equal(showing(), first);
-  s.onKey('ENTER');
+  s.onKey('PLAY_PAUSE');
   win.tick(60 * SECOND);
   assert.notEqual(showing(), first);
+});
+
+test('OK favorites the photo on screen with a filling heart, and again unfavorites it', async () => {
+  const { win, s, showing } = await slideshow(photos(10));
+  const url = 'https://example.test/photo-' + showing();
+  const saved = () => JSON.parse(win.storage.get('gtv:favorites') || '[]');
+  assert.equal(s.onKey('ENTER'), true);
+  assert.deepEqual(saved(), [url]);
+  assert.ok(s.heartEl.classList.contains('is-favorite'));
+  assert.ok(s.root.classList.contains('is-hearting'), 'the status steps aside');
+  win.tick(1200);
+  assert.ok(!s.heartEl.classList.contains('is-favorite'), 'the heart is gone after 1.2 s');
+  assert.ok(!s.root.classList.contains('is-hearting'));
+  s.onKey('ENTER');
+  assert.deepEqual(saved(), []);
+  assert.ok(s.heartEl.classList.contains('is-unfavorite'));
+  assert.equal(s.paused, false, 'OK no longer pauses');
+});
+
+test('a quick second press restarts the heart, and it still goes after 1.2 s', async () => {
+  const { win, s } = await slideshow(photos(10));
+  s.onKey('ENTER');
+  win.tick(1000);
+  s.onKey('ENTER');
+  win.tick(1000);
+  assert.ok(s.heartEl.classList.contains('is-unfavorite'), 'the first timer did not cut the second heart short');
+  win.tick(200);
+  assert.equal(s.heartEl.className, 'ambient-heart');
+});
+
+test('OK before any photo is up does nothing', async () => {
+  const { s } = await slideshow(photos(3), () => null);
+  s.onKey('ENTER');
+  assert.equal(s.favorites.size, 0);
 });
 
 test('photos that fail, or load as a tiny placeholder, are skipped and never show', async () => {

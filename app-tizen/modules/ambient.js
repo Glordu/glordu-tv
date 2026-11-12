@@ -17,9 +17,14 @@
 // Left on the first photo wraps to the last; finishing the loop going
 // forward reshuffles for the next one.
 //
-// Remote: Right/Left next/previous, OK or Play/Pause pauses, Info hides the
-// clock and weather. Up/Down belong to the page stack. While another page is
-// showing, photos stop changing; a fresh interval starts on return.
+// Favorites (OK on a photo; saved on the TV) also get extra turns between the
+// loop's photos, from their own shuffled round: see FAVORITE_SHARE_*. The loop
+// itself is unchanged, so every photo still shows once per pass.
+//
+// Remote: Right/Left next/previous, OK favorites or unfavorites the photo,
+// Play/Pause pauses, Info hides the clock and weather. Up/Down belong to the
+// page stack. While another page is showing, photos stop changing; a fresh
+// interval starts on return.
 (function () {
   'use strict';
 
@@ -31,6 +36,29 @@
   // Where the loop (its order and position) is saved, so the next session
   // carries on instead of reshuffling: every photo shows once before repeats.
   const LOOP_KEY = 'gtv:loop';
+  // The favorite photos' URLs. Only on this TV: there's nowhere else to keep them.
+  const FAVORITES_KEY = 'gtv:favorites';
+  // Each favorite comes back about once every 100 photos, but favorites never
+  // take more than a quarter of the turns: the rest still get seen, so new
+  // favorites can be found.
+  const FAVORITE_SHARE_EACH = 0.01;
+  const FAVORITE_SHARE_MAX = 0.25;
+  // How long the heart stays up; matches the animation in app.css.
+  const HEART_MS = 1200;
+  // Material Icons "favorite_border" and "favorite".
+  const HEART_OUTLINE =
+    '<svg viewBox="0 0 24 24"><path fill="#fff" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>';
+  const HEART_FILLED =
+    '<svg viewBox="0 0 24 24"><path fill="#fff" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+
+  function readFavorites() {
+    try {
+      const urls = JSON.parse(localStorage.getItem(FAVORITES_KEY));
+      return new Set(Array.isArray(urls) ? urls : []);
+    } catch (err) {
+      return new Set();
+    }
+  }
 
   // A short, stable id for a photo URL, to save the loop compactly.
   function urlId(url) {
@@ -80,6 +108,11 @@
     this.order = []; // the loop: indexes into images, shuffled
     this.pos = -1; // where in the loop the current photo is
     this.wrappedBack = false; // went left past the first photo
+    this.favorites = readFavorites(); // URLs
+    this.extra = null; // a favorite's extra turn on screen (an index), else null
+    this.credit = 0; // favorite turns earned, taken whenever it reaches 1
+    this.favShown = []; // ids of favorites shown in the current round
+    this.currentUrl = null; // the photo on screen
     this.broken = new Set();
     this.fails = 0;
     this.paused = false; // paused with the remote
@@ -89,6 +122,7 @@
     this.timer = null;
     this.retryTimer = null;
 
+    this.root = root;
     root.classList.add('ambient');
     this.layers = [child(root, 'ambient-layer'), child(root, 'ambient-layer')];
     this.layers.forEach((layer) => {
@@ -101,6 +135,8 @@
     this.weatherEl = child(corner, 'ambient-weather');
     this.clockEl = child(corner, 'ambient-clock');
     this.statusEl = child(root, 'ambient-status');
+    this.heartEl = child(root, 'ambient-heart');
+    this.heartEl.innerHTML = HEART_OUTLINE + '<div class="ambient-heart-fill">' + HEART_FILLED + '</div>';
 
     if (this.showClock) {
       this.tickClock();
@@ -182,6 +218,8 @@
       saved = null;
     }
     const n = this.images.length;
+    this.credit = saved && isFinite(saved.credit) ? saved.credit : 0;
+    this.favShown = saved && Array.isArray(saved.favShown) ? saved.favShown : [];
     if (!saved || !saved.order || !saved.order.length) {
       this.order = shuffled(n, -1);
       this.pos = -1;
@@ -212,7 +250,15 @@
 
   Ambient.prototype.saveLoop = function () {
     try {
-      localStorage.setItem(LOOP_KEY, JSON.stringify({ pos: this.pos, order: this.order.map((i) => this.ids[i]) }));
+      localStorage.setItem(
+        LOOP_KEY,
+        JSON.stringify({
+          pos: this.pos,
+          order: this.order.map((i) => this.ids[i]),
+          credit: this.credit,
+          favShown: this.favShown,
+        })
+      );
     } catch (err) {
       // Not saved; the next session reshuffles. Not worth interrupting for.
     }
@@ -224,6 +270,7 @@
   Ambient.prototype.step = function (dir, instant) {
     const n = this.order.length;
     if (!n) return;
+    this.extra = null;
     if (this.broken.size >= n) this.broken.clear();
     for (let tries = 0; tries < n; tries++) {
       this.pos += dir;
@@ -243,12 +290,80 @@
     this.display(this.order[this.pos], instant, dir);
   };
 
+  // Forward: a favorite's extra turn when one is due, else the loop's next photo.
   Ambient.prototype.next = function (instant) {
-    this.step(1, instant);
+    const favorite = this.favoriteTurn();
+    if (favorite == null) {
+      this.step(1, instant);
+      return;
+    }
+    this.extra = favorite;
+    this.saveLoop();
+    this.display(favorite, instant, 1);
   };
 
+  // Back from a favorite's extra turn is the loop photo shown before it.
   Ambient.prototype.previous = function (instant) {
+    if (this.extra != null && this.pos >= 0) {
+      this.extra = null;
+      this.display(this.order[this.pos], instant, -1);
+      return;
+    }
     this.step(-1, instant);
+  };
+
+  // Every move forward earns favorites a share of a turn: 1% per favorite, up
+  // to FAVORITE_SHARE_MAX. When a whole turn has built up, it goes to a
+  // favorite not yet shown in this round (in random order), so they take
+  // turns too. Returns the favorite's index, or null for the loop's turn.
+  Ambient.prototype.favoriteTurn = function () {
+    const favorites = [];
+    this.images.forEach((item, i) => {
+      if (this.favorites.has(item.url) && !this.broken.has(i)) favorites.push(i);
+    });
+    if (!favorites.length) return null;
+    this.credit += Math.min(FAVORITE_SHARE_MAX, favorites.length * FAVORITE_SHARE_EACH);
+    if (this.credit < 1) return null;
+    this.credit -= 1;
+    const notOnScreen = favorites.filter((i) => this.images[i].url !== this.currentUrl);
+    let candidates = notOnScreen.filter((i) => this.favShown.indexOf(this.ids[i]) < 0);
+    if (!candidates.length) {
+      this.favShown = []; // everyone had a turn: a new round
+      candidates = notOnScreen;
+    }
+    if (!candidates.length) return null; // the only favorite is on screen
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    this.favShown.push(this.ids[pick]);
+    return pick;
+  };
+
+  Ambient.prototype.toggleFavorite = function () {
+    const url = this.currentUrl;
+    if (!url) return;
+    const on = !this.favorites.has(url);
+    if (on) this.favorites.add(url);
+    else this.favorites.delete(url);
+    try {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(this.favorites)));
+    } catch (err) {
+      console.warn('Could not save favorites', err);
+    }
+    this.showHeart(on);
+  };
+
+  // The heart at top-right: fills when favoriting, empties when unfavoriting,
+  // then fades. The status message there steps aside meanwhile.
+  Ambient.prototype.showHeart = function (on) {
+    const heart = this.heartEl;
+    heart.className = 'ambient-heart';
+    void heart.offsetWidth; // restart the animation on a quick second press
+    heart.className = 'ambient-heart ' + (on ? 'is-favorite' : 'is-unfavorite');
+    this.root.classList.add('is-hearting');
+    clearTimeout(this.heartTimer);
+    this.heartTimer = setTimeout(() => {
+      heart.className = 'ambient-heart';
+      this.root.classList.remove('is-hearting');
+    }, HEART_MS);
   };
 
   // The photo after the current one, to load ahead; null when finishing the
@@ -286,6 +401,7 @@
         return;
       }
       this.fails = 0;
+      this.currentUrl = item.url;
       this.swap(item, instant);
       this.setStatus(this.paused ? 'Paused' : '');
       this.schedule();
@@ -357,6 +473,8 @@
         this.previous(true);
         return true;
       case 'ENTER':
+        this.toggleFavorite();
+        return true;
       case 'PLAY_PAUSE':
         this.setPaused(!this.paused);
         return true;
@@ -378,6 +496,7 @@
     this.dead = true;
     clearTimeout(this.timer);
     clearTimeout(this.retryTimer);
+    clearTimeout(this.heartTimer);
     clearInterval(this.clockTimer);
     clearInterval(this.refreshTimer);
     if (this.unsubscribeWeather) this.unsubscribeWeather();
