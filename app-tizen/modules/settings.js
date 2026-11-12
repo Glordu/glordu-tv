@@ -195,6 +195,11 @@
     if (focused && focused.scrollIntoView) focused.scrollIntoView({ block: 'nearest' });
   };
 
+  // Moving between rows only moves the highlight; the values don't change.
+  Settings.prototype.renderFocus = function () {
+    this.rowEls.forEach((el, i) => el.classList.toggle('is-focused', i === this.focus));
+  };
+
   Settings.prototype.openSearch = function () {
     this.mode = 'search';
     this.input.value = '';
@@ -297,12 +302,12 @@
       case 'UP':
         if (this.focus === 0) return false;
         this.focus--;
-        this.render();
+        this.renderFocus();
         return true;
       case 'DOWN':
         if (this.focus === this.rows.length - 1) return false;
         this.focus++;
-        this.render();
+        this.renderFocus();
         return true;
       case 'LEFT':
         row.change(-1);

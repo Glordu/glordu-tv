@@ -62,7 +62,8 @@ body {
   bottom: 0;
   left: 0;
   height: 30%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0));
+  /* A pre-drawn image, not a CSS gradient: see scripts/make-backgrounds.mjs. */
+  background: url(../img/shade.png) 0 0 / 100% 100% no-repeat;
 }
 
 .ambient-overlay {
@@ -153,17 +154,24 @@ body {
   overflow: hidden;
 }
 
-.pager-stack {
-  transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.3, 1);
-}
-
+/* All pages share one spot; only the current one is displayed, plus the
+   incoming one while a slide runs (see slidePages in js/core.js). */
 .page {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   height: 100%;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.page.is-hidden {
+  display: none;
+}
+
+.page.is-sliding {
+  transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.3, 1);
 }
 
 /* Trying to go past the first or last page nudges the stack and back. */
@@ -225,7 +233,7 @@ body {
 
 .forecast {
   padding: 3.5rem 5rem;
-  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
+  background: #0a0d14 url(../img/page-bg.png) 0 0 / 100% 100% no-repeat;
 }
 
 .fc-head {
@@ -373,7 +381,6 @@ body {
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.05);
   text-align: center;
-  transition: background 0.15s, border-color 0.15s;
 }
 
 .fc-cell.is-selected {
@@ -424,7 +431,7 @@ body {
 
 .settings {
   padding: 3.5rem 5rem;
-  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
+  background: #0a0d14 url(../img/page-bg.png) 0 0 / 100% 100% no-repeat;
 }
 
 .settings h1 {
@@ -580,4 +587,20 @@ body {
 
 #toast.is-visible {
   opacity: 1;
+}
+
+/* Performance readout (Yellow key) */
+
+.perf {
+  display: none;
+  position: absolute;
+  top: 1.2rem;
+  left: 1.2rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.4rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: #9fef9f;
+  font: 1rem/1.5 monospace;
+  white-space: pre;
+  z-index: 10;
 }

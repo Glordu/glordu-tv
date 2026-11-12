@@ -20,13 +20,19 @@
   }
 
   // Formats dates in the forecast's own time zone, so "today" and the day
-  // names match the place, not wherever the TV's clock is set.
+  // names match the place, not wherever the TV's clock is set. Formatters
+  // are slow to create on the TV, so each one is made once and reused.
+  const formatters = {};
   function formatter(zone, options) {
-    try {
-      return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: zone || undefined }, options));
-    } catch (err) {
-      return new Intl.DateTimeFormat('en-GB', options);
+    const key = zone + JSON.stringify(options);
+    if (!formatters[key]) {
+      try {
+        formatters[key] = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: zone || undefined }, options));
+      } catch (err) {
+        formatters[key] = new Intl.DateTimeFormat('en-GB', options);
+      }
     }
+    return formatters[key];
   }
 
   function Forecast(root, ctx) {
@@ -74,13 +80,22 @@
   };
 
   // Index of today in data.daily (the list starts weeks in the past).
+  // Worked out at most once a minute per data set, not on every key press.
   Forecast.prototype.todayIndex = function () {
+    const now = Date.now();
+    const cached = this.todayCache;
+    if (cached && cached.data === this.data && now < cached.until) return cached.index;
     const day = formatter(this.data.timezone, { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const today = day.format(new Date());
+    const today = day.format(new Date(now));
+    let index = 0;
     for (let i = 0; i < this.data.daily.length; i++) {
-      if (day.format(new Date(this.data.daily[i].time)) === today) return i;
+      if (day.format(new Date(this.data.daily[i].time)) === today) {
+        index = i;
+        break;
+      }
     }
-    return 0;
+    this.todayCache = { data: this.data, until: now + 60000, index: index };
+    return index;
   };
 
   Forecast.prototype.render = function () {
@@ -133,14 +148,30 @@
       make('b', null, row, fact[1]);
     });
 
-    this.chartEl.innerHTML = this.chart(day, this.offset < 0, zone);
+    // Each day's chart is built once (per minute, for the "now" dot) and reused.
+    const chartKey = index + '|' + Math.floor(Date.now() / 60000) + '|' + GTV.clock.mode();
+    if (!this.charts || this.charts.data !== data) this.charts = { data: data };
+    if (!this.charts[chartKey]) this.charts[chartKey] = this.chart(day, this.offset < 0, zone);
+    if (this.chartKey !== chartKey) {
+      this.chartEl.innerHTML = this.charts[chartKey];
+      this.chartKey = chartKey;
+    }
 
-    // Strip: the 7-day week (counted from today) the selected day is in
-    this.stripEl.innerHTML = '';
+    // Strip: the 7-day week (counted from today) the selected day is in.
+    // Within the same week only the highlight moves; it's rebuilt only when
+    // the week or the data changes.
     const start = today + Math.floor(this.offset / DAYS_PER_STRIP) * DAYS_PER_STRIP;
+    const stripKey = start + '|' + today;
+    if (this.strip && this.strip.data === data && this.strip.key === stripKey) {
+      this.strip.cells.forEach((cell, n) => cell.classList.toggle('is-selected', start + n === index));
+      return;
+    }
+    this.strip = { data: data, key: stripKey, cells: [] };
+    this.stripEl.innerHTML = '';
     for (let i = start; i < start + DAYS_PER_STRIP; i++) {
       const d = data.daily[i];
       const cell = make('div', 'fc-cell', this.stripEl);
+      this.strip.cells.push(cell);
       if (!d) {
         cell.classList.add('is-empty');
         continue;

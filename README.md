@@ -135,6 +135,26 @@ maps each file to its original URL and photographer. If the links go dark,
 serve the backup from your home network or bundle it into the app, and point
 `modules.ambient.images` at the new list.
 
+## Performance on the TV
+
+The TV draws pixels in software on a slow CPU, so what's cheap on a PC can
+be very slow there. Measured with the tools below:
+
+- **No CSS gradients on large areas.** One full-screen gradient cost about
+  5 s of raster work per page slide (a 1.3 s freeze). The backgrounds are
+  small pre-drawn images instead (`scripts/make-backgrounds.mjs`), which cost
+  about the same as a solid color.
+- Pages slide one pair at a time, each on its own layer only while moving
+  (`slidePages` in `js/core.js`); keys update only what changed.
+
+Tools:
+
+- **Yellow key**: on-screen readout of key → frame time and the frame rate of
+  the last slide.
+- **`scripts/tv-trace.mjs`**: drives the app through the TV's debugger and
+  reports raster time and main-thread stalls per key press; it can also inject
+  CSS live to try a change before deploying. Setup is in its header.
+
 ## Try it in a browser
 
 ```bash

@@ -6,6 +6,7 @@
 
   const GTV = window.GTV;
   const formatters = {};
+  let tvZoneCache = null;
 
   function pad(n) {
     return n < 10 ? '0' + n : String(n);
@@ -45,9 +46,13 @@
       return pref;
     },
 
+    // Read once a minute at most: the lookup is slow on the TV.
     tvZone: function () {
+      const now = Date.now();
+      if (tvZoneCache && now - tvZoneCache.at < 60000) return tvZoneCache.zone;
       try {
-        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        tvZoneCache = { at: now, zone: Intl.DateTimeFormat().resolvedOptions().timeZone || null };
+        return tvZoneCache.zone;
       } catch (err) {
         return null;
       }

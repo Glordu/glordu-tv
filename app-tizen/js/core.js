@@ -33,7 +33,7 @@
   const EDITING_KEYS = ['ENTER', 'BACK', 'CANCEL', 'UP', 'DOWN'];
 
   const registry = {};
-  let pages = []; // [{ id, instance }]
+  let pages = []; // [{ id, el, instance }]
   let current = 0;
   let pagerEl = null;
   let stackEl = null;
@@ -82,6 +82,7 @@
     void pagerEl.offsetWidth; // restart the animation
     pagerEl.classList.add('bounce-' + direction);
     showDots();
+    GTV.perf.measureAnimation('Bounce', 350);
   }
 
   function resetIdle() {
@@ -91,16 +92,67 @@
     idleTimer = setTimeout(() => goTo(0), minutes * 60 * 1000);
   }
 
+  // Page slides. Only the current page is displayed; a slide shows the
+  // incoming page just off-screen, waits for it to be drawn, then moves the
+  // two pages together. Drawing first keeps the slow part (painting a whole
+  // page, hundreds of ms on the TV) out of the animation, and only these two
+  // pages are GPU layers, and only while they move.
+  let slide = null; // { from, to, timer, token }
+  let slideToken = 0;
+
+  function setY(el, percent) {
+    el.style.transform = percent ? 'translateY(' + percent + '%)' : '';
+  }
+
+  function finishSlide() {
+    if (!slide) return;
+    clearTimeout(slide.timer);
+    slide.from.classList.add('is-hidden');
+    [slide.from, slide.to].forEach((el) => {
+      el.classList.remove('is-sliding');
+      el.style.willChange = '';
+      setY(el, 0);
+    });
+    slide = null;
+  }
+
+  function slidePages(from, to, direction, label) {
+    finishSlide();
+    const token = ++slideToken;
+    const prepared = performance.now();
+    to.classList.remove('is-hidden');
+    setY(to, 100 * direction);
+    from.style.willChange = 'transform';
+    to.style.willChange = 'transform';
+    slide = { from: from, to: to, timer: 0 };
+    // Two frames: the first lays out and paints the incoming page, the
+    // second starts the move once that's on screen.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (token !== slideToken || !slide) return;
+        GTV.perf.measureAnimation(label, 450, performance.now() - prepared);
+        from.classList.add('is-sliding');
+        to.classList.add('is-sliding');
+        setY(from, -100 * direction);
+        setY(to, 0);
+        slide.timer = setTimeout(finishSlide, 500);
+      })
+    );
+  }
+
   function goTo(index) {
     if (index < 0 || index >= pages.length) {
       bounce(index < 0 ? 'up' : 'down');
       return;
     }
     if (index === current) return;
-    call(pages[current], 'onHide');
+    const from = pages[current];
+    const to = pages[index];
+    const direction = index > current ? 1 : -1; // 1: the new page comes up from below
+    call(from, 'onHide');
     current = index;
-    stackEl.style.transform = 'translateY(' + -100 * index + '%)';
-    call(pages[current], 'onShow');
+    call(to, 'onShow');
+    slidePages(from.el, to.el, direction, 'Slide ' + from.id + ' → ' + to.id);
     showDots();
     resetIdle();
   }
@@ -142,7 +194,17 @@
     if (!key) return;
     if (editing && EDITING_KEYS.indexOf(key) < 0) return;
     event.preventDefault();
+    GTV.perf.keyStart();
+    dispatch(key);
+    GTV.perf.keyEnd();
+  }
+
+  function dispatch(key) {
     resetIdle();
+    if (key === 'YELLOW') {
+      GTV.perf.toggle();
+      return;
+    }
     if (key === 'BACK') {
       onBack();
       return;
@@ -160,9 +222,10 @@
     dotsEl = make('pager-dots', rootEl);
 
     const ids = ((GTV.config && GTV.config.pages) || DEFAULT_PAGES).filter((id) => registry[id]);
+    current = Math.max(0, ids.indexOf(startId));
     pages = ids.map((id, i) => {
-      const el = make('page page-' + id, stackEl);
-      el.style.top = 100 * i + '%';
+      // Every page sits in the same place; all but the current one are hidden.
+      const el = make('page page-' + id + (i === current ? '' : ' is-hidden'), stackEl);
       make('pager-dot', dotsEl);
       const ctx = {
         id: id,
@@ -172,17 +235,11 @@
         toast: GTV.toast,
         goTo: GTV.goTo,
       };
-      return { id: id, instance: registry[id].mount(el, ctx) || {} };
+      return { id: id, el: el, instance: registry[id].mount(el, ctx) || {} };
     });
-
-    // Jump straight to the start page, without the slide.
-    current = Math.max(0, ids.indexOf(startId));
-    stackEl.style.transition = 'none';
-    stackEl.style.transform = 'translateY(' + -100 * current + '%)';
-    void stackEl.offsetWidth;
-    stackEl.style.transition = '';
     pages.forEach((page, i) => call(page, i === current ? 'onShow' : 'onHide'));
 
+    GTV.perf.init(rootEl);
     document.addEventListener('keydown', onKeyDown);
     resetIdle();
   };
