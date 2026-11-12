@@ -73,8 +73,10 @@ async function main() {
     if (img.source === TAG && img.added) addedBefore[img.url] = img.added;
   });
 
+  // Photos removed on purpose (e.g. duplicates) stay out.
+  const excluded = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'excluded-photos.json'), 'utf8')).map((e) => e.url));
   const images = upstream
-    .filter((_, i) => alive[i])
+    .filter((item, i) => alive[i] && !excluded.has(item.url))
     .map(({ url, author }) => ({ url, author: author || null, source: TAG, added: addedBefore[url] || now }));
 
   const doc = {

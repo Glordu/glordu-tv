@@ -144,6 +144,12 @@ npm run backup   # download every listed photo to ./backup (gitignored)
 Whether the feed's links expire is not known yet; re-running `npm run harvest`
 drops any that stopped working and picks up new ones.
 
+Photos removed on purpose are listed, with the reason, in
+`scripts/excluded-photos.json`; both scripts skip them so they don't come back.
+So far that's two duplicates (the same picture under two links), found by
+comparing perceptual fingerprints of the backed-up photos; no photo appears in
+both sources.
+
 The backup is safe to re-run; it skips files it already has. `backup/index.json`
 maps each file to its original URL and photographer. If the links go dark,
 serve the backup from your home network or bundle it into the app, and point

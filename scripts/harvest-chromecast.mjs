@@ -72,7 +72,10 @@ async function main() {
   harvested = harvested.filter((_, i) => alive[i]);
   const dropped = before - harvested.length;
 
+  // Photos already listed, plus ones removed on purpose (e.g. duplicates),
+  // are never added again.
   const known = new Set(harvested.map((img) => baseOf(img.url)));
+  JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'excluded-photos.json'), 'utf8')).forEach((e) => known.add(baseOf(e.url)));
   let added = 0;
   let empty = 0;
   for (let load = 1; load <= MAX_LOADS && empty < STOP_AFTER_EMPTY; load++) {
