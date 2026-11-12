@@ -16,8 +16,7 @@ body {
   font-family: 'SamsungOne', 'Roboto', 'Segoe UI', sans-serif;
 }
 
-#app,
-.screen {
+#app {
   position: absolute;
   top: 0;
   right: 0;
@@ -139,221 +138,306 @@ body {
   opacity: 1;
 }
 
-/* Home */
+/* Page stack: pages sit one below the other and the stack slides. */
 
-.home,
-.about {
+.pager,
+.pager-stack {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
-  padding: 4rem 5rem;
-  background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
 }
 
-.home-title,
-.about h1 {
-  margin: 0 0 3rem;
-  font-size: 2.6rem;
-  font-weight: 400;
+.pager {
+  overflow: hidden;
 }
 
-.home-tiles {
-  display: flex;
-  margin: 0 -0.8rem 3rem;
+.pager-stack {
+  transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.3, 1);
 }
 
-.tile {
-  width: 18rem;
-  margin: 0 0.8rem;
-  padding: 2rem 1.6rem;
-  border: 0.15rem solid transparent;
-  border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.07);
-  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+.page {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.tile.is-focused {
-  border-color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.16);
-  transform: scale(1.06);
+/* Trying to go past the first or last page nudges the stack and back. */
+.pager.bounce-up {
+  animation: pager-bounce-up 0.35s ease-out;
 }
 
-.tile-title {
-  font-size: 1.7rem;
+.pager.bounce-down {
+  animation: pager-bounce-down 0.35s ease-out;
 }
 
-.tile-desc {
-  margin-top: 0.5rem;
-  font-size: 1.1rem;
-  opacity: 0.65;
+@keyframes pager-bounce-up {
+  40% {
+    transform: translateY(3.5rem);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pager-bounce-down {
+  40% {
+    transform: translateY(-3.5rem);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.pager-dots {
+  position: absolute;
+  top: 50%;
+  right: 1.8rem;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.4s;
+}
+
+.pager-dots.is-visible {
+  opacity: 1;
+}
+
+.pager-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  margin: 0.7rem 0;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 0.3rem rgba(0, 0, 0, 0.5);
+  transition: height 0.3s, background 0.3s;
+}
+
+.pager-dot.is-current {
+  height: 1.7rem;
+  background: #fff;
 }
 
 /* Weather page */
 
 .forecast {
-  padding: 4rem 5rem;
+  padding: 3.5rem 5rem;
   background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
 }
 
-.forecast h1 {
+.fc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fc-head h1 {
+  display: inline;
   margin: 0;
   font-size: 2.6rem;
   font-weight: 400;
 }
 
-.forecast-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2.4rem;
+.fc-place {
+  font-size: 1.6rem;
+  opacity: 0.6;
 }
 
-.forecast-place {
-  margin-top: 0.4rem;
+.fc-now {
+  display: flex;
+  align-items: center;
   font-size: 1.3rem;
-  opacity: 0.65;
 }
 
-.forecast-now {
+.fc-now-label {
+  opacity: 0.6;
+}
+
+.fc-now .weather-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  margin: 0 0.6rem 0 1rem;
+}
+
+.fc-now-temp {
+  font-size: 2.2rem;
+}
+
+.fc-detail {
   display: flex;
   align-items: center;
-  font-size: 1.4rem;
+  margin-top: 1.6rem;
 }
 
-.forecast-now .weather-icon {
-  width: 3.4rem;
-  height: 3.4rem;
+.fc-icon .weather-icon {
+  width: 9.5rem;
+  height: 9.5rem;
+  margin-right: 2rem;
 }
 
-.forecast-now-temp {
-  margin: 0 1.2rem 0 0.8rem;
-  font-size: 3.2rem;
-}
-
-.forecast-now-label {
-  opacity: 0.7;
-}
-
-.forecast-range {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 1.4rem;
-  font-size: 1.5rem;
-}
-
-.forecast-arrow {
-  opacity: 0.8;
-}
-
-.forecast-arrow.is-disabled {
-  opacity: 0.15;
-}
-
-.forecast-page {
-  margin: 0 1rem;
-}
-
-.forecast-dates {
-  margin-right: 1rem;
-  font-size: 1.2rem;
-  opacity: 0.55;
-}
-
-.forecast-days {
-  display: flex;
-  margin: 0 -0.5rem 2.4rem;
-}
-
-.forecast-day {
-  flex: 1;
-  min-width: 0;
-  margin: 0 0.5rem;
-  padding: 1.6rem 1rem;
-  border: 0.15rem solid transparent;
-  border-radius: 0.8rem;
-  background: rgba(255, 255, 255, 0.06);
-  text-align: center;
-}
-
-.forecast-day.is-today {
-  border-color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.forecast-day.is-past {
-  opacity: 0.6;
-}
-
-.forecast-day.is-empty {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.forecast-empty {
-  margin-top: 6rem;
-  font-size: 1.1rem;
-  opacity: 0.4;
-}
-
-.forecast-day-name {
-  font-size: 1.5rem;
-}
-
-.forecast-day-date {
-  margin-top: 0.2rem;
-  font-size: 1.1rem;
-  opacity: 0.6;
-}
-
-.forecast-day-icon .weather-icon {
-  width: 4.4rem;
-  height: 4.4rem;
-  margin: 1.2rem 0 0.4rem;
-}
-
-.forecast-day-label {
-  min-height: 2.6rem;
-  font-size: 1.05rem;
-  opacity: 0.7;
-}
-
-.forecast-day-temps {
-  margin: 0.8rem 0 1rem;
-}
-
-.forecast-max {
+.fc-day {
   font-size: 2rem;
 }
 
-.forecast-min {
-  margin-left: 0.8rem;
-  font-size: 1.5rem;
+.fc-temps {
+  font-size: 5.5rem;
+  font-weight: 300;
+  line-height: 1.05;
+}
+
+.fc-min {
+  margin-left: 1rem;
+  font-size: 3.2rem;
   opacity: 0.55;
 }
 
-.forecast-day-detail {
-  margin-top: 0.3rem;
-  font-size: 1.05rem;
+.fc-label {
+  font-size: 1.6rem;
   opacity: 0.65;
 }
 
-.forecast-status {
+.fc-facts {
+  margin-left: auto;
+  font-size: 1.5rem;
+}
+
+.fc-facts div {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.3rem 0;
+}
+
+.fc-facts span {
+  margin-right: 1.2rem;
+  opacity: 0.55;
+}
+
+.fc-facts b {
+  min-width: 11rem;
+  font-weight: 400;
+  text-align: right;
+}
+
+.fc-chart {
+  width: 86rem;
+  height: 13rem;
+  margin: 1.4rem 0 1.2rem;
+}
+
+.fc-chart svg {
+  overflow: visible;
+}
+
+.fc-chart-line {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.fc-chart-bars rect {
+  fill: rgba(120, 180, 255, 0.4);
+}
+
+.fc-chart-now {
+  fill: #fff;
+  stroke: #0a0d14;
+  stroke-width: 4;
+}
+
+.fc-chart-temp,
+.fc-chart-hour {
+  fill: #fff;
+  font-size: 26px;
+  text-anchor: middle;
+}
+
+.fc-chart-hour {
+  font-size: 22px;
+  opacity: 0.5;
+}
+
+.fc-strip {
+  display: flex;
+  margin: 0 -0.4rem;
+}
+
+.fc-cell {
+  flex: 1;
+  margin: 0 0.4rem;
+  padding: 0.9rem 0;
+  border: 0.15rem solid transparent;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.fc-cell.is-selected {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.fc-cell.is-past {
+  opacity: 0.6;
+}
+
+.fc-cell.is-empty {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fc-cell-name {
+  font-size: 1.3rem;
+}
+
+.fc-cell-icon .weather-icon {
+  width: 3.2rem;
+  height: 3.2rem;
+  margin: 0.4rem 0;
+}
+
+.fc-cell-temps {
+  font-size: 1.3rem;
+}
+
+.fc-cell-temps span {
+  margin-left: 0.5rem;
+  opacity: 0.55;
+}
+
+.fc-status {
   font-size: 1.3rem;
   opacity: 0.75;
+}
+
+.fc-hint {
+  position: absolute;
+  left: 5rem;
+  bottom: 1.8rem;
+  margin: 0;
 }
 
 /* Settings */
 
 .settings {
-  padding: 4rem 5rem;
+  padding: 3.5rem 5rem;
   background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%);
 }
 
 .settings h1 {
-  margin: 0 0 2.4rem;
+  margin: 0 0 1.8rem;
   font-size: 2.6rem;
   font-weight: 400;
+}
+
+.settings .hint {
+  position: absolute;
+  left: 5rem;
+  bottom: 1.8rem;
+  margin: 0;
 }
 
 .settings-view.is-hidden {
@@ -447,26 +531,34 @@ body {
   opacity: 0.75;
 }
 
-/* About */
+/* About, at the bottom of Settings */
 
-/* The label column is capped: an unbounded max-content column once grew
-   to fit a long label and pushed every value off-screen. */
-.about dl {
-  display: grid;
-  grid-template-columns: minmax(0, 16rem) 1fr;
-  margin: 0 0 3rem;
-  font-size: 1.2rem;
+.settings-about h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1.6rem;
+  font-weight: 400;
+  opacity: 0.8;
 }
 
-.about dt,
-.about dd {
+/* Two label/value pairs per line so it fits under the settings. Label
+   columns are capped: an unbounded max-content column once grew to fit a
+   long label and pushed every value off-screen. */
+.settings-about dl {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr minmax(0, 9rem) 1fr;
   margin: 0;
-  padding: 0.5rem 2rem 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.settings-about dt,
+.settings-about dd {
+  margin: 0;
+  padding: 0.45rem 1.5rem 0.45rem 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   word-break: break-all;
 }
 
-.about dt {
+.settings-about dt {
   opacity: 0.6;
 }
 

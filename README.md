@@ -37,7 +37,21 @@ The TV's browser engine is an older Chromium. Use classic `<script>` tags, not
 ES modules (the package is served from `file://`). Avoid `?.`, `??`, and
 flexbox `gap`.
 
-### Modules
+### Pages and the remote
+
+Each module is a page, stacked vertically: Slideshow, Weather, Settings
+(`config.pages` can change the order).
+
+- **▲ ▼** slide to the previous / next page. Past the first or last page
+  the stack bounces back; dots on the right edge show where you are.
+- **◀ ▶** act inside the page: photo, day, or the setting's value.
+- **Back** first resets the page (Weather to today, Settings to the first
+  setting, closing the city search), then returns to the Slideshow. On the
+  Slideshow, Back shows "Press Back again to exit" and a second press within
+  2 seconds exits.
+- After `config.idleReturnMinutes` (default 5) without a key press on
+  another page, the app slides back to the Slideshow, which only changes
+  photos while it's showing.
 
 A module is one file in `app-tizen/modules/` that calls `GTV.register(...)`.
 Add its `<script>` tag to `index.html`. See `js/core.js` for the interface.
@@ -45,13 +59,12 @@ Its settings come from `modules.<id>` in `config.json`.
 
 | Module    | What it does |
 |-----------|--------------|
-| `ambient` | Photo slideshow with weather and clock in the bottom-right corner. Right/Left: next/previous photo. OK or Play/Pause: pause. Up/Down/Info: hide the clock and weather. |
-| `home`    | Launcher tiles. Back from here exits. |
-| `weather` | Daily weather a week at a time, starting with today: icon, high/low, rain and wind. ◀ ▶ page from 4 weeks back to the end of the 16-day forecast. Past days show the rain that fell, future days the chance of rain. |
-| `settings` | Location, time zone, temperature units and clock format, saved on the TV. |
-| `about`   | Version, location and time zone in use, and whether each data file came live or from the offline copy. |
+| `ambient` | Photo slideshow with weather and clock in the bottom-right corner. ◀ ▶: previous/next photo. OK or Play/Pause: pause. Info: hide the clock and weather. |
+| `weather` | The selected day in detail (high/low, rain, wind, sunrise and sunset, an hourly temperature chart with rain bars) over a strip of its week. ◀ ▶ move a day at a time, from 4 weeks back to the end of the 16-day forecast. Past days show the rain that fell, future days the chance of rain. |
+| `settings` | Location, time zone, temperature units and clock format, saved on the TV, with an About section (version, location source, resolution, where each data file came from). ▲ ▼ move through the settings and only leave the page past the first or last one. |
 
-Back from the slideshow opens Home. Back from Home exits.
+`design/mockup.html` is the interactive mockup the layout was chosen from
+(open it through `npm run serve`); its forecast numbers are made up.
 
 ### Settings
 

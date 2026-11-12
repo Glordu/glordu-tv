@@ -7,6 +7,6 @@
 
   GTV.data.loadConfig().then((config) => {
     GTV.config = config;
-    GTV.start(document.getElementById('app'), config.startModule || 'home');
+    GTV.start(document.getElementById('app'), config.startModule || 'ambient');
   });
 })();

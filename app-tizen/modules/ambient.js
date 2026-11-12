@@ -15,8 +15,9 @@
 // Left on the first photo wraps to the last; finishing the loop going
 // forward reshuffles for the next one.
 //
-// Remote: Right/Left next/previous, OK or Play/Pause pauses,
-// Up/Down/Info hides the clock and weather.
+// Remote: Right/Left next/previous, OK or Play/Pause pauses, Info hides the
+// clock and weather. Up/Down belong to the page stack. While another page is
+// showing, photos stop changing; a fresh interval starts on return.
 (function () {
   'use strict';
 
@@ -69,7 +70,8 @@
     this.wrappedBack = false; // went left past the first photo
     this.broken = new Set();
     this.fails = 0;
-    this.paused = false;
+    this.paused = false; // paused with the remote
+    this.hidden = false; // another page is showing
     this.token = 0;
     this.dead = false;
     this.timer = null;
@@ -258,7 +260,17 @@
 
   Ambient.prototype.schedule = function () {
     clearTimeout(this.timer);
-    if (!this.paused) this.timer = setTimeout(() => this.next(), this.intervalMs);
+    if (!this.paused && !this.hidden) this.timer = setTimeout(() => this.next(), this.intervalMs);
+  };
+
+  Ambient.prototype.onShow = function () {
+    this.hidden = false;
+    this.schedule();
+  };
+
+  Ambient.prototype.onHide = function () {
+    this.hidden = true;
+    clearTimeout(this.timer);
   };
 
   Ambient.prototype.prefetch = function () {
@@ -294,8 +306,6 @@
       case 'PAUSE':
         this.setPaused(true);
         return true;
-      case 'UP':
-      case 'DOWN':
       case 'INFO':
         this.overlay.classList.toggle('is-hidden');
         return true;

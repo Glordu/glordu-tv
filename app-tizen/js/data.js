@@ -5,7 +5,7 @@
 
   const GTV = window.GTV;
   const CACHE_PREFIX = 'gtv:cache:';
-  const FALLBACK_CONFIG = { startModule: 'home', modules: {} };
+  const FALLBACK_CONFIG = { startModule: 'ambient', modules: {} };
 
   function queryParam(name) {
     const match = new RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);

@@ -87,7 +87,10 @@
     this.listView = make('div', 'settings-view', root);
     make('h1', null, this.listView, 'Settings');
     const rowsEl = make('div', 'settings-rows', this.listView);
-    make('p', 'hint', this.listView, '▲▼ choose · ◀▶ change · OK on Location searches for a city · Back return');
+    const about = make('div', 'settings-about', this.listView);
+    make('h2', null, about, 'About');
+    this.aboutEl = make('dl', null, about);
+    make('p', 'hint', this.listView, '▲▼ setting (past the first: other pages) · ◀▶ change · OK on Location searches for a city · Back to the first setting');
 
     this.searchView = make('div', 'settings-view is-hidden', root);
     make('h1', null, this.searchView, 'Choose a city');
@@ -281,9 +284,6 @@
       case 'CANCEL': // the on-screen keyboard was dismissed
         this.input.blur();
         return true;
-      case 'BACK':
-        this.closeSearch();
-        return true;
       default:
         return true;
     }
@@ -293,12 +293,15 @@
     if (this.mode === 'search') return this.onSearchKey(key);
     const row = this.rows[this.focus];
     switch (key) {
+      // Past the first or last setting, ▲▼ move the page stack instead.
       case 'UP':
-        if (this.focus > 0) this.focus--;
+        if (this.focus === 0) return false;
+        this.focus--;
         this.render();
         return true;
       case 'DOWN':
-        if (this.focus < this.rows.length - 1) this.focus++;
+        if (this.focus === this.rows.length - 1) return false;
+        this.focus++;
         this.render();
         return true;
       case 'LEFT':
@@ -312,8 +315,55 @@
         else row.change(1);
         return true;
       default:
-        return false; // Back leaves Settings
+        return false;
     }
+  };
+
+  // Back closes the city search, then returns to the first setting.
+  Settings.prototype.onBack = function () {
+    if (this.mode === 'search') {
+      this.closeSearch();
+      return true;
+    }
+    if (this.focus !== 0) {
+      this.focus = 0;
+      this.render();
+      return true;
+    }
+    return false;
+  };
+
+  Settings.prototype.onShow = function () {
+    this.renderAbout();
+  };
+
+  // Leaving the page (or the idle return) closes the search and its keyboard.
+  Settings.prototype.onHide = function () {
+    if (this.mode === 'search') this.closeSearch();
+  };
+
+  // Version and where the data came from, for checking things on the TV.
+  Settings.prototype.renderAbout = function () {
+    const list = this.aboutEl;
+    list.innerHTML = '';
+    const row = (label, value) => {
+      make('dt', null, list, label);
+      make('dd', null, list, value);
+    };
+    const shortName = (url) => (url.indexOf('api.open-meteo.com') > -1 ? 'Weather' : url.split('?')[0].split('/').pop() || url);
+    const describe = (entry) => {
+      const when = entry.at ? new Date(entry.at).toLocaleString() : 'never';
+      if (entry.source === 'network') return 'live, fetched ' + when;
+      if (entry.source === 'cache') return 'offline copy from ' + when + ' (' + entry.error + ')';
+      return 'unavailable (' + entry.error + ')';
+    };
+    const sources = { manual: 'chosen above', auto: 'detected automatically', config: 'config.json default' };
+    const loc = GTV.location.current();
+    row('Version', GTV.VERSION + ' (' + this.ctx.platform.name + ')');
+    row('Location', loc ? GTV.location.describe(loc) + ' (' + sources[loc.source] + ')' : 'not resolved yet');
+    row('Resolution', window.innerWidth + '×' + window.innerHeight + ' at ' + window.devicePixelRatio + 'x');
+    row('Config', this.ctx.data.configUrl);
+    Object.keys(this.ctx.data.log).forEach((url) => row(shortName(url), describe(this.ctx.data.log[url])));
   };
 
   Settings.prototype.unmount = function () {
