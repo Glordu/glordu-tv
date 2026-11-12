@@ -183,6 +183,27 @@ Tools:
   reports raster time and main-thread stalls per key press; it can also inject
   CSS live to try a change before deploying. Setup is in its header.
 
+## Tests
+
+```bash
+npm test
+```
+
+Node's built-in test runner, no dependencies. `test/` covers the logic that
+has broken or easily could:
+
+| File | Covers |
+|---|---|
+| `ambient.test.mjs` | the slideshow loop: wrapping, reshuffling, skipping dead photos, carrying on across restarts and list changes |
+| `location.test.mjs` | chosen city vs automatic vs config fallback; the lookup race when choosing a city; caching |
+| `weather.test.mjs` | grouping hours under days (including 23-hour daylight-saving days), parsing, hiding stale readings |
+| `forecast.test.mjs` | the Weather page: day strip and hours row, day changes landing on now, Back, now moving with the clock |
+| `scripts.test.mjs` | the Chromecast feed parser (with Google's double escaping) and merging photo lists (tags, dates, exclusions) |
+
+App files are browser scripts, so `test/helpers/app.mjs` runs them in a
+sandbox with a fake DOM, storage and network. Looks and TV performance stay
+manual (browser preview, the Yellow-key readout, `scripts/tv-trace.mjs`).
+
 ## Try it in a browser
 
 ```bash
