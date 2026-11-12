@@ -194,10 +194,14 @@ has broken or easily could:
 
 | File | Covers |
 |---|---|
+| `core.test.mjs` | the page stack: moving and bouncing, keys going to the page first, the Back sequence and exit window, the idle return, typing in text fields, the Yellow-key readout |
 | `ambient.test.mjs` | the slideshow loop: wrapping, reshuffling, skipping dead photos, carrying on across restarts and list changes |
+| `ambient-display.test.mjs` | the slideshow on screen: the interval, pausing while hidden, remote presses restarting the interval, instant vs faded swaps, placeholders never showing, the retry after repeated failures |
 | `location.test.mjs` | chosen city vs automatic vs config fallback; the lookup race when choosing a city; caching |
 | `weather.test.mjs` | grouping hours under days (including 23-hour daylight-saving days), parsing, hiding stale readings |
-| `forecast.test.mjs` | the Weather page: day strip and hours row, day changes landing on now, Back, now moving with the clock |
+| `services.test.mjs` | remote data and its offline copy; the clock's formats and time zones; the weather request's units and rounded location |
+| `forecast.test.mjs` | the Weather page: day strip and hours row, day changes landing on now, Back, now moving with the clock, only ~18 hour columns in the page |
+| `settings.test.mjs` | Settings rows and leaving the page at the edges, Back, changing values, the city search |
 | `scripts.test.mjs` | the Chromecast feed parser (with Google's double escaping) and merging photo lists (tags, dates, exclusions) |
 
 App files are browser scripts, so `test/helpers/app.mjs` runs them in a

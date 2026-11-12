@@ -119,6 +119,26 @@ test('when a new hour starts, now (and a selection on it) moves along', () => {
   assert.equal(forecast.hour, before + 1);
 });
 
+// The data holds ~1,000 hours; putting them all in the page made it slow on
+// the TV, so only the window and a buffer each side are ever built.
+test('only the hours near the visible window are in the page', () => {
+  const { forecast } = page();
+  const span = () => forecast.rendered.to - forecast.rendered.from;
+  assert.ok(span() <= 18, 'at most 18 columns, got ' + span());
+  forecast.onKey('UP');
+  for (let i = 0; i < 40; i++) forecast.onKey('RIGHT');
+  assert.ok(span() <= 18, 'still at most 18 after scrolling, got ' + span());
+  assert.ok(forecast.hour >= forecast.rendered.from && forecast.hour < forecast.rendered.to, 'the selected hour is built');
+});
+
+test('at the end of the forecast the row stops scrolling, keeping 6 hours in view', () => {
+  const { forecast } = page();
+  forecast.onKey('UP');
+  for (let i = 0; i < 200; i++) forecast.onKey('RIGHT');
+  assert.equal(forecast.hour, forecast.hours.length - 1);
+  assert.equal(forecast.windowStart, forecast.hours.length - 6);
+});
+
 test('a picked hour stays put when the hour changes', () => {
   const { win, forecast } = page();
   forecast.onKey('UP');
