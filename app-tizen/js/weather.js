@@ -8,9 +8,10 @@
 //
 // Modules call GTV.weather.subscribe(fn); fn gets
 //   { timezone, current: { temperature, code, isDay, time },
-//     daily: [{ time, code, max, min, rainChance, rain, wind }] }
-// (times are JS millisecond timestamps of local midnight; rain in mm or
-// inches, wind in km/h or mph), or null when weather is unavailable.
+//     daily: [{ time, code, max, min, rainChance, rain, wind, sunrise, sunset,
+//               hours: [{ time, temperature, rainChance, rain, code, isDay }] }] }
+// (times are JS millisecond timestamps, day times at local midnight; rain in
+// mm or inches, wind in km/h or mph), or null when weather is unavailable.
 (function () {
   'use strict';
 
@@ -42,7 +43,8 @@
       '?latitude=' + coord(loc.latitude) +
       '&longitude=' + coord(loc.longitude) +
       '&current=temperature_2m,weather_code,is_day' +
-      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,sunrise,sunset' +
+      '&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day' +
       '&past_days=' + PAST_DAYS + '&forecast_days=' + FORECAST_DAYS +
       '&timezone=auto&timeformat=unixtime' +
       '&temperature_unit=' + (imperial ? 'fahrenheit' : 'celsius') +
@@ -53,6 +55,34 @@
 
   function column(d, name, i) {
     return d[name] ? d[name][i] : null;
+  }
+
+  function seconds(value) {
+    return value == null ? null : value * 1000;
+  }
+
+  // Hours grouped under the day they fall in. Days are normally 24 hours,
+  // but 23 or 25 on daylight-saving changes, so group by time, not by count.
+  function attachHours(daily, h) {
+    if (!h || !h.time) return;
+    let next = 0;
+    daily.forEach((day, i) => {
+      const end = i + 1 < daily.length ? daily[i + 1].time : Infinity;
+      day.hours = [];
+      while (next < h.time.length && h.time[next] * 1000 < end) {
+        if (h.time[next] * 1000 >= day.time) {
+          day.hours.push({
+            time: h.time[next] * 1000,
+            temperature: column(h, 'temperature_2m', next),
+            rainChance: column(h, 'precipitation_probability', next),
+            rain: column(h, 'precipitation', next),
+            code: column(h, 'weather_code', next),
+            isDay: column(h, 'is_day', next) === 1,
+          });
+        }
+        next++;
+      }
+    });
   }
 
   function parse(body) {
@@ -66,7 +96,11 @@
       rainChance: column(d, 'precipitation_probability_max', i),
       rain: column(d, 'precipitation_sum', i),
       wind: column(d, 'wind_speed_10m_max', i),
+      sunrise: seconds(column(d, 'sunrise', i)),
+      sunset: seconds(column(d, 'sunset', i)),
+      hours: [],
     }));
+    attachHours(daily, body.hourly);
     return {
       timezone: body.timezone || null,
       current: { temperature: c.temperature_2m, code: c.weather_code, isDay: c.is_day === 1, time: c.time * 1000 },
