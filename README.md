@@ -144,6 +144,14 @@ npm run backup   # download every listed photo to ./backup (gitignored)
 Whether the feed's links expire is not known yet; re-running `npm run harvest`
 drops any that stopped working and picks up new ones.
 
+**Not used yet:** [luke.lol's Chromecast gallery](https://luke.lol/chromecast.php)
+has 1,283 Chromecast photos (755 current, 451 old, 77 archive, as of November
+2026), likely including a few hundred we don't have, among them photos whose
+Google links died. It hosts its own copies (`/chromecast/<id>/base` at
+1920×1080, `/max` for originals) and an RSS feed with photographer credits,
+but no Google links, so using it would mean downloading once and serving the
+photos ourselves rather than loading them from that personal site.
+
 Photos removed on purpose are listed, with the reason, in
 `scripts/excluded-photos.json`; both scripts skip them so they don't come back.
 So far that's two duplicates (the same picture under two links), found by
