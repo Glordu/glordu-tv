@@ -60,11 +60,13 @@ Its settings come from `modules.<id>` in `config.json`.
 | Module    | What it does |
 |-----------|--------------|
 | `ambient` | Photo slideshow with weather and clock in the bottom-right corner. ◀ ▶: previous/next photo. OK or Play/Pause: pause. Info: hide the clock and weather. |
-| `weather` | The selected day in detail (high/low, rain, wind, sunrise and sunset, an hourly temperature chart with rain bars) over a strip of its week. ◀ ▶ move a day at a time, from 4 weeks back to the end of the 16-day forecast. Past days show the rain that fell, future days the chance of rain. |
+| `weather` | Current weather (with "feels like") and the clock at the top, the selected day's high/low, rain, wind and sun times beside them, a row of 6 hours (temperature line, icon, chance of rain), and the week's day strip. The page opens on the strip: ◀ ▶ change day (keeping the time of day), ▲ moves to the hours row, where ◀ ▶ step an hour at a time across midnight into other days. Back returns to now. Range: 4 weeks back to the end of the 16-day forecast; past hours show the rain that fell. The temperature line is scaled per strip week, so equal temperatures sit at equal heights. |
 | `settings` | Location, time zone, temperature units and clock format, saved on the TV, with an About section (version, location source, resolution, where each data file came from). ▲ ▼ move through the settings and only leave the page past the first or last one. |
 
-`design/mockup.html` is the interactive mockup the layout was chosen from
-(open it through `npm run serve`); its forecast numbers are made up.
+`design/` holds the interactive mockups the layouts were chosen from (open
+them through `npm run serve`): `mockup.html` for the page stack (made-up
+numbers), `hourly-rain.html` and `hourly-scroll.html` for the Weather page
+(live forecast).
 
 ### Settings
 

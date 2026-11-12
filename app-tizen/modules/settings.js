@@ -90,7 +90,6 @@
     const about = make('div', 'settings-about', this.listView);
     make('h2', null, about, 'About');
     this.aboutEl = make('dl', null, about);
-    make('p', 'hint', this.listView, '▲▼ setting (past the first: other pages) · ◀▶ change · OK on Location searches for a city · Back to the first setting');
 
     this.searchView = make('div', 'settings-view is-hidden', root);
     make('h1', null, this.searchView, 'Choose a city');
@@ -100,7 +99,6 @@
     this.input.setAttribute('autocomplete', 'off');
     this.searchStatus = make('p', 'settings-status', this.searchView);
     this.resultsEl = make('div', 'settings-results', this.searchView);
-    make('p', 'hint', this.searchView, 'OK search, then pick · ▲▼ choose · Back cancel');
 
     this.rows = this.defineRows();
     this.rowEls = this.rows.map((row) => {

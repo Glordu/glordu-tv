@@ -7,7 +7,7 @@
 //   refreshMinutes        how often to re-fetch while something is listening
 //
 // Modules call GTV.weather.subscribe(fn); fn gets
-//   { timezone, current: { temperature, code, isDay, time },
+//   { timezone, current: { temperature, feelsLike, code, isDay, time },
 //     daily: [{ time, code, max, min, rainChance, rain, wind, sunrise, sunset,
 //               hours: [{ time, temperature, rainChance, rain, code, isDay }] }] }
 // (times are JS millisecond timestamps, day times at local midnight; rain in
@@ -42,7 +42,7 @@
       'https://api.open-meteo.com/v1/forecast' +
       '?latitude=' + coord(loc.latitude) +
       '&longitude=' + coord(loc.longitude) +
-      '&current=temperature_2m,weather_code,is_day' +
+      '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,sunrise,sunset' +
       '&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day' +
       '&past_days=' + PAST_DAYS + '&forecast_days=' + FORECAST_DAYS +
@@ -103,7 +103,7 @@
     attachHours(daily, body.hourly);
     return {
       timezone: body.timezone || null,
-      current: { temperature: c.temperature_2m, code: c.weather_code, isDay: c.is_day === 1, time: c.time * 1000 },
+      current: { temperature: c.temperature_2m, feelsLike: c.apparent_temperature, code: c.weather_code, isDay: c.is_day === 1, time: c.time * 1000 },
       daily: daily,
     };
   }

@@ -33,11 +33,6 @@ body {
   opacity: 0.6;
 }
 
-.hint {
-  font-size: 1.1rem;
-  opacity: 0.55;
-}
-
 /* Ambient */
 
 .ambient-layer {
@@ -229,16 +224,17 @@ body {
   background: #fff;
 }
 
-/* Weather page */
+/* Weather page (design: design/hourly-scroll.html) */
 
 .forecast {
-  padding: 3.5rem 5rem;
+  padding: 2.8rem 5rem;
+  /* A pre-drawn image, not a CSS gradient: see scripts/make-backgrounds.mjs. */
   background: #0a0d14 url(../img/page-bg.png) 0 0 / 100% 100% no-repeat;
 }
 
 .fc-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
 }
 
@@ -254,129 +250,215 @@ body {
   opacity: 0.6;
 }
 
-.fc-now {
+.fc-clock {
+  font-size: 3.2rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+/* Hero: current weather on the left, the selected day on the right */
+
+.fc-hero {
   display: flex;
   align-items: center;
-  font-size: 1.3rem;
+  height: 9.5rem;
+  margin-top: 0.9rem;
 }
 
-.fc-now-label {
-  opacity: 0.6;
-}
-
-.fc-now .weather-icon {
-  width: 2.4rem;
-  height: 2.4rem;
-  margin: 0 0.6rem 0 1rem;
+.fc-now-icon .weather-icon {
+  width: 8.5rem;
+  height: 8.5rem;
+  margin-right: 1.8rem;
 }
 
 .fc-now-temp {
-  font-size: 2.2rem;
-}
-
-.fc-detail {
-  display: flex;
-  align-items: center;
-  margin-top: 1.6rem;
-}
-
-.fc-icon .weather-icon {
-  width: 9.5rem;
-  height: 9.5rem;
-  margin-right: 2rem;
-}
-
-.fc-day {
-  font-size: 2rem;
-}
-
-.fc-temps {
-  font-size: 5.5rem;
+  font-size: 6rem;
   font-weight: 300;
-  line-height: 1.05;
+  line-height: 1;
+}
+
+.fc-now-label {
+  margin-top: 0.3rem;
+  font-size: 1.6rem;
+}
+
+.fc-now-feels {
+  margin-top: 0.2rem;
+  font-size: 1.3rem;
+  opacity: 0.6;
+}
+
+.fc-dayinfo {
+  margin-left: auto;
+  text-align: right;
+}
+
+.fc-day-title {
+  font-size: 1.8rem;
+}
+
+.fc-day-range {
+  margin: 0.1rem 0 0.3rem;
+  font-size: 2.2rem;
+  font-weight: 300;
 }
 
 .fc-min {
-  margin-left: 1rem;
-  font-size: 3.2rem;
+  margin-left: 0.7rem;
   opacity: 0.55;
 }
 
-.fc-label {
-  font-size: 1.6rem;
-  opacity: 0.65;
-}
-
 .fc-facts {
-  margin-left: auto;
-  font-size: 1.5rem;
-}
-
-.fc-facts div {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.3rem 0;
+  font-size: 1.3rem;
 }
 
 .fc-facts span {
-  margin-right: 1.2rem;
+  margin: 0 0.5rem 0 1.4rem;
   opacity: 0.55;
 }
 
 .fc-facts b {
-  min-width: 11rem;
   font-weight: 400;
-  text-align: right;
 }
 
-.fc-chart {
-  width: 86rem;
-  height: 13rem;
-  margin: 1.4rem 0 1.2rem;
+/* Hours row: 6 columns of 286px visible; the track slides */
+
+.fc-hours {
+  position: relative;
+  height: 19rem;
+  margin-top: 1.7rem;
+  overflow: hidden;
+  border-radius: 0.8rem;
 }
 
-.fc-chart svg {
+/* The track keeps its own GPU layer, so sliding it never repaints it. */
+.fc-track {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transition: transform 0.3s cubic-bezier(0.22, 0.8, 0.3, 1);
+  will-change: transform;
+}
+
+/* The selected hour: a box that moves over the row (see renderHours). */
+.fc-hour-focus {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14.3rem;
+  height: 100%;
+  box-sizing: border-box;
+  border: 0.15rem solid transparent;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.is-focus-hours .fc-hour-focus {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.fc-line {
+  position: absolute;
+  top: 0;
+  left: 0;
   overflow: visible;
 }
 
-.fc-chart-line {
+.fc-line path {
   fill: none;
   stroke: #fff;
   stroke-width: 4;
   stroke-linejoin: round;
 }
 
-.fc-chart-bars rect {
-  fill: rgba(120, 180, 255, 0.4);
+.fc-point {
+  fill: #fff;
 }
 
-.fc-chart-now {
-  fill: #fff;
+.fc-point.is-now {
   stroke: #0a0d14;
   stroke-width: 4;
 }
 
-.fc-chart-temp,
-.fc-chart-hour {
+.fc-point-temp {
   fill: #fff;
-  font-size: 26px;
+  font-size: 30px;
   text-anchor: middle;
 }
 
-.fc-chart-hour {
-  font-size: 22px;
-  opacity: 0.5;
+.fc-col {
+  position: absolute;
+  top: 0;
+  width: 14.3rem;
+  height: 100%;
 }
+
+.fc-col-time {
+  position: absolute;
+  top: 0.9rem;
+  left: 0;
+  right: 0;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.fc-col-time.is-midnight {
+  color: #8fc4ff;
+}
+
+.fc-col-icon {
+  position: absolute;
+  top: 11.6rem;
+  left: 50%;
+  margin-left: -1.4rem;
+}
+
+.fc-col-icon .weather-icon {
+  width: 2.8rem;
+  height: 2.8rem;
+}
+
+.fc-col-rain {
+  position: absolute;
+  top: 15.5rem;
+  left: 0;
+  right: 0;
+  color: #8fc4ff;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.fc-col-rain.is-dry {
+  opacity: 0.35;
+}
+
+.fc-umbrella {
+  margin-right: 0.3rem;
+  vertical-align: -0.2rem;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.fc-divider {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 0.1rem;
+  background: rgba(143, 196, 255, 0.4);
+}
+
+/* Day strip */
 
 .fc-strip {
   display: flex;
-  margin: 0 -0.4rem;
+  margin: 1.7rem -0.4rem 0;
 }
 
 .fc-cell {
   flex: 1;
   margin: 0 0.4rem;
-  padding: 0.9rem 0;
+  padding: 0.7rem 0;
   border: 0.15rem solid transparent;
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.05);
@@ -384,6 +466,10 @@ body {
 }
 
 .fc-cell.is-selected {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.is-focus-days .fc-cell.is-selected {
   border-color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.16);
 }
@@ -401,9 +487,9 @@ body {
 }
 
 .fc-cell-icon .weather-icon {
-  width: 3.2rem;
-  height: 3.2rem;
-  margin: 0.4rem 0;
+  width: 2.8rem;
+  height: 2.8rem;
+  margin: 0.3rem 0;
 }
 
 .fc-cell-temps {
@@ -411,20 +497,13 @@ body {
 }
 
 .fc-cell-temps span {
-  margin-left: 0.5rem;
+  margin-left: 0.4rem;
   opacity: 0.55;
 }
 
 .fc-status {
   font-size: 1.3rem;
   opacity: 0.75;
-}
-
-.fc-hint {
-  position: absolute;
-  left: 5rem;
-  bottom: 1.8rem;
-  margin: 0;
 }
 
 /* Settings */
@@ -438,13 +517,6 @@ body {
   margin: 0 0 1.8rem;
   font-size: 2.6rem;
   font-weight: 400;
-}
-
-.settings .hint {
-  position: absolute;
-  left: 5rem;
-  bottom: 1.8rem;
-  margin: 0;
 }
 
 .settings-view.is-hidden {

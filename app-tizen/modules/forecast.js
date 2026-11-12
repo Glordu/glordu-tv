@@ -1,15 +1,33 @@
-// Weather page: the selected day in detail (icon, high/low, rain, wind, sun
-// times and an hourly chart) over a strip of that day's week. ◀ ▶ move a day
-// at a time, from 4 weeks back to the end of the 16-day forecast; Back
-// returns to today. Data comes from the shared GTV.weather service.
+// Weather page (design: design/hourly-scroll.html).
+//
+//   header  title and place · clock
+//   hero    current weather (icon, temperature, description, feels like) ·
+//           the selected day's title, high/low, rain, wind and sun times
+//   hours   a row of 6 hours (time, temperature line, icon, chance of rain)
+//   strip   the week of the selected day
+//
+// The page has two rows to move between: the day strip (where it starts)
+// and the hours row. ◀ ▶ move a day in the strip, keeping the time of day,
+// or an hour in the hours row, running on into the next or previous day.
+// ▲ from the strip goes to the hours row; ▲ from the hours row and ▼ from
+// the strip leave the page. Back returns to now, on the strip.
 (function () {
   'use strict';
 
   const GTV = window.GTV;
   const DAYS_PER_STRIP = 7;
-  const CHART_W = 1720; // SVG units; the chart box is 86rem × 13rem
-  const CHART_H = 260;
+  const VISIBLE_HOURS = 6;
+  const BUFFER_HOURS = 6; // columns kept in the page on each side of the window
+  const COL = 286; // px per hour column at 1920 wide (the row is 1716 px)
+  const ROW_H = 380;
+  const LINE_TOP = 100; // the temperature line's band inside the row
+  const LINE_BAND = 112;
   const RESET_AFTER_HIDDEN_MS = 5 * 60 * 1000;
+  // A small open umbrella (24×24); Material's umbrella icon is a closed one.
+  const UMBRELLA =
+    '<svg class="fc-umbrella" viewBox="0 0 24 24" width="1em" height="1em">' +
+    '<path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/>' +
+    '<path d="M12 12v6.5a1.6 1.6 0 0 1-3.2 0" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
 
   function make(tag, className, parent, text) {
     const el = document.createElement(tag);
@@ -38,40 +56,47 @@
   function Forecast(root, ctx) {
     this.ctx = ctx;
     this.data = null;
-    this.offset = 0; // selected day, relative to today
+    this.focus = 'days';
+    this.hour = 0; // selected hour, as an index into this.hours
+    this.windowStart = 0; // first visible hour
+    this.rendered = null; // { from, to } hour columns currently in the page
     this.hiddenAt = 0;
 
     root.classList.add('forecast');
+    this.root = root;
     const head = make('div', 'fc-head', root);
     const titles = make('div', null, head);
     make('h1', null, titles, 'Weather');
     this.placeEl = make('span', 'fc-place', titles);
-    this.nowEl = make('div', 'fc-now', head);
+    this.clockEl = make('div', 'fc-clock', head);
 
-    const detail = make('div', 'fc-detail', root);
-    this.iconEl = make('div', 'fc-icon', detail);
-    const main = make('div', 'fc-main', detail);
-    this.dayEl = make('div', 'fc-day', main);
-    const temps = make('div', 'fc-temps', main);
-    this.maxEl = make('span', null, temps);
-    this.minEl = make('span', 'fc-min', temps);
-    this.labelEl = make('div', 'fc-label', main);
-    this.factsEl = make('div', 'fc-facts', detail);
+    const hero = make('div', 'fc-hero', root);
+    this.nowIconEl = make('div', 'fc-now-icon', hero);
+    const now = make('div', null, hero);
+    this.nowTempEl = make('div', 'fc-now-temp', now);
+    this.nowLabelEl = make('div', 'fc-now-label', now);
+    this.nowFeelsEl = make('div', 'fc-now-feels', now);
+    const info = make('div', 'fc-dayinfo', hero);
+    this.dayTitleEl = make('div', 'fc-day-title', info);
+    const range = make('div', 'fc-day-range', info);
+    this.maxEl = make('span', null, range);
+    this.minEl = make('span', 'fc-min', range);
+    this.factsEl = make('div', 'fc-facts', info);
 
-    this.chartEl = make('div', 'fc-chart', root);
+    const hoursEl = make('div', 'fc-hours', root);
+    this.focusEl = make('div', 'fc-hour-focus', hoursEl);
+    this.trackEl = make('div', 'fc-track', hoursEl);
     this.stripEl = make('div', 'fc-strip', root);
     this.statusEl = make('p', 'fc-status', root, 'Loading the forecast…');
-    make('p', 'hint fc-hint', root, '◀ ▶ day · ▲▼ other pages · Back to today');
 
     this.unsubscribe = [
-      GTV.weather.subscribe((data) => {
-        this.data = data;
-        this.render();
-      }),
+      GTV.weather.subscribe((data) => this.setData(data)),
       GTV.location.onChange(() => this.renderPlace()),
     ];
     GTV.location.get().then(() => this.renderPlace());
     this.renderPlace();
+    this.tickClock();
+    this.clockTimer = setInterval(() => this.tickClock(), 1000);
   }
 
   Forecast.prototype.renderPlace = function () {
@@ -79,187 +104,302 @@
     this.placeEl.textContent = loc ? ' · ' + GTV.location.describe(loc) : '';
   };
 
-  // Index of today in data.daily (the list starts weeks in the past).
-  // Worked out at most once a minute per data set, not on every key press.
-  Forecast.prototype.todayIndex = function () {
-    const now = Date.now();
-    const cached = this.todayCache;
-    if (cached && cached.data === this.data && now < cached.until) return cached.index;
-    const day = formatter(this.data.timezone, { year: 'numeric', month: '2-digit', day: '2-digit' });
-    const today = day.format(new Date(now));
-    let index = 0;
-    for (let i = 0; i < this.data.daily.length; i++) {
-      if (day.format(new Date(this.data.daily[i].time)) === today) {
-        index = i;
-        break;
-      }
-    }
-    this.todayCache = { data: this.data, until: now + 60000, index: index };
-    return index;
+  Forecast.prototype.tickClock = function () {
+    const text = GTV.clock.format(new Date());
+    if (this.clockEl.textContent !== text) this.clockEl.textContent = text;
   };
 
-  Forecast.prototype.render = function () {
-    if (!this.data) {
+  // ---- Data ------------------------------------------------------------------
+
+  // Flattens the days' hours into one list, so the hours row can run across
+  // midnight, and works out where "now" and "today" are.
+  Forecast.prototype.setData = function (data) {
+    const selectedTime = this.data && this.hours[this.hour] ? this.hours[this.hour].time : null;
+    this.data = data;
+    this.charts = null;
+    this.rendered = null;
+    this.strip = null;
+    if (!data) {
       this.statusEl.textContent = "Weather isn't available right now. Check the TV's internet connection.";
       return;
     }
     this.statusEl.textContent = '';
+    this.hours = [];
+    this.dayStart = [];
+    data.daily.forEach((day, d) => {
+      this.dayStart[d] = this.hours.length;
+      (day.hours || []).forEach((h, i) => this.hours.push({ day: d, inDay: i, h: h }));
+    });
+    this.today = this.todayIndex();
+    this.now = this.nowIndex();
+    // Keep the selection across a refresh, else start at now.
+    let selected = this.now;
+    if (selectedTime != null) {
+      for (let i = 0; i < this.hours.length; i++) if (this.hours[i].h.time === selectedTime) selected = i;
+    }
+    this.hour = selected;
+    this.windowStart = this.hour;
+    this.render();
+  };
+
+  Forecast.prototype.todayIndex = function () {
+    const day = formatter(this.data.timezone, { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const today = day.format(new Date());
+    for (let i = 0; i < this.data.daily.length; i++) {
+      if (day.format(new Date(this.data.daily[i].time)) === today) return i;
+    }
+    return 0;
+  };
+
+  Forecast.prototype.nowIndex = function () {
+    const t = Date.now();
+    for (let i = this.hours.length - 1; i >= 0; i--) if (this.hours[i].h.time <= t) return i;
+    return 0;
+  };
+
+  // The strip's week (counted from today) that a day falls in.
+  Forecast.prototype.weekStart = function (day) {
+    return this.today + Math.floor((day - this.today) / DAYS_PER_STRIP) * DAYS_PER_STRIP;
+  };
+
+  // Lowest and highest hourly temperature of a strip week; the line is
+  // scaled to the week so the same temperature sits at the same height.
+  Forecast.prototype.weekRange = function (start) {
+    this.ranges = this.ranges && this.ranges.data === this.data ? this.ranges : { data: this.data };
+    if (!this.ranges[start]) {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let d = start; d < start + DAYS_PER_STRIP; d++) {
+        const day = this.data.daily[d];
+        if (!day) continue;
+        day.hours.forEach((h) => {
+          if (h.temperature == null) return;
+          lo = Math.min(lo, h.temperature);
+          hi = Math.max(hi, h.temperature);
+        });
+      }
+      this.ranges[start] = { lo: lo - 1, hi: hi + 1 };
+    }
+    return this.ranges[start];
+  };
+
+  // ---- Rendering ---------------------------------------------------------------
+
+  Forecast.prototype.render = function () {
+    if (!this.data || !this.hours.length) return;
     const data = this.data;
     const zone = data.timezone;
-    const today = this.todayIndex();
-    this.offset = Math.max(-today, Math.min(data.daily.length - 1 - today, this.offset));
-    const index = today + this.offset;
-    const day = data.daily[index];
+    const day = this.hours[this.hour].day;
+    const d = data.daily[day];
     const imperial = GTV.weather.units() === 'fahrenheit';
-    const weekday = formatter(zone, { weekday: 'long' });
-    const shortDay = formatter(zone, { weekday: 'short' });
-    const date = formatter(zone, { day: 'numeric', month: 'short' });
-    const name = (offset, d, short) =>
-      offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : offset === -1 ? 'Yesterday' : (short ? shortDay : weekday).format(new Date(d.time));
+    this.root.classList.toggle('is-focus-hours', this.focus === 'hours');
+    this.root.classList.toggle('is-focus-days', this.focus === 'days');
 
-    // Now, top right
+    // Current weather
     const now = data.current;
-    this.nowEl.innerHTML =
-      '<span class="fc-now-label">Now</span>' +
-      GTV.weather.icon(now.code, now.isDay) +
-      '<span class="fc-now-temp">' + GTV.weather.formatTemp(now.temperature) + '</span>';
+    this.nowIconEl.innerHTML = GTV.weather.icon(now.code, now.isDay);
+    this.nowTempEl.textContent = GTV.weather.formatTemp(now.temperature);
+    this.nowLabelEl.textContent = GTV.weather.label(now.code);
+    this.nowFeelsEl.textContent = now.feelsLike != null ? 'Feels like ' + GTV.weather.formatTemp(now.feelsLike) : '';
 
     // Selected day
-    this.iconEl.innerHTML = GTV.weather.icon(day.code, true);
-    this.dayEl.textContent = name(this.offset, day, false) + ' · ' + date.format(new Date(day.time));
-    this.maxEl.textContent = GTV.weather.formatTemp(day.max);
-    this.minEl.textContent = GTV.weather.formatTemp(day.min);
-    this.labelEl.textContent = GTV.weather.label(day.code);
-
+    this.dayTitleEl.textContent = this.dayName(day, false) + ' · ' + formatter(zone, { day: 'numeric', month: 'short' }).format(new Date(d.time));
+    this.maxEl.textContent = GTV.weather.formatTemp(d.max);
+    this.minEl.textContent = GTV.weather.formatTemp(d.min);
     const amount = (v) => (imperial ? v.toFixed(2) + ' in' : v.toFixed(1) + ' mm');
-    let rain;
-    if (this.offset < 0) rain = day.rain > 0 ? amount(day.rain) + ' fell' : 'No rain';
-    else rain = (day.rainChance != null ? day.rainChance + '% chance' : '') + (day.rain > 0 ? ' · ' + amount(day.rain) : '');
     const time = (t) => (t ? GTV.clock.format(new Date(t), zone) : '–');
+    const rain = day < this.today ? (d.rain > 0 ? amount(d.rain) + ' fell' : 'none') : d.rainChance != null ? d.rainChance + '%' : '–';
     this.factsEl.innerHTML = '';
     [
       ['Rain', rain],
-      ['Wind', day.wind != null ? Math.round(day.wind) + (imperial ? ' mph' : ' km/h') : '–'],
-      ['Sunrise', time(day.sunrise)],
-      ['Sunset', time(day.sunset)],
+      ['Wind', d.wind != null ? Math.round(d.wind) + (imperial ? ' mph' : ' km/h') : '–'],
+      ['Sun', time(d.sunrise) + '–' + time(d.sunset)],
     ].forEach((fact) => {
-      const row = make('div', null, this.factsEl);
-      make('span', null, row, fact[0]);
-      make('b', null, row, fact[1]);
+      make('span', null, this.factsEl, fact[0]);
+      make('b', null, this.factsEl, fact[1]);
     });
 
-    // Each day's chart is built once (per minute, for the "now" dot) and reused.
-    const chartKey = index + '|' + Math.floor(Date.now() / 60000) + '|' + GTV.clock.mode();
-    if (!this.charts || this.charts.data !== data) this.charts = { data: data };
-    if (!this.charts[chartKey]) this.charts[chartKey] = this.chart(day, this.offset < 0, zone);
-    if (this.chartKey !== chartKey) {
-      this.chartEl.innerHTML = this.charts[chartKey];
-      this.chartKey = chartKey;
-    }
+    this.renderHours();
+    this.renderStrip(day);
+  };
 
-    // Strip: the 7-day week (counted from today) the selected day is in.
-    // Within the same week only the highlight moves; it's rebuilt only when
-    // the week or the data changes.
-    const start = today + Math.floor(this.offset / DAYS_PER_STRIP) * DAYS_PER_STRIP;
-    const stripKey = start + '|' + today;
-    if (this.strip && this.strip.data === data && this.strip.key === stripKey) {
-      this.strip.cells.forEach((cell, n) => cell.classList.toggle('is-selected', start + n === index));
+  Forecast.prototype.dayName = function (day, short) {
+    const offset = day - this.today;
+    if (offset === 0) return 'Today';
+    if (offset === 1) return 'Tomorrow';
+    if (offset === -1) return 'Yesterday';
+    return formatter(this.data.timezone, { weekday: short ? 'short' : 'long' }).format(new Date(this.data.daily[day].time));
+  };
+
+  // The hours row: only columns near the visible window are in the page
+  // (there are ~1,000 hours in the data); they're rebuilt as the window
+  // moves past the buffer, and the track slides to show the window.
+  Forecast.prototype.renderHours = function () {
+    // Keep the selected hour inside the window, scrolling only as needed.
+    if (this.hour < this.windowStart) this.windowStart = this.hour;
+    if (this.hour > this.windowStart + VISIBLE_HOURS - 1) this.windowStart = this.hour - VISIBLE_HOURS + 1;
+    this.windowStart = Math.max(0, Math.min(this.hours.length - VISIBLE_HOURS, this.windowStart));
+
+    const r = this.rendered;
+    if (!r || this.windowStart < r.from || this.windowStart + VISIBLE_HOURS > r.to) {
+      const from = Math.max(0, this.windowStart - BUFFER_HOURS);
+      const to = Math.min(this.hours.length, this.windowStart + VISIBLE_HOURS + BUFFER_HOURS);
+      this.buildColumns(from, to);
+    }
+    this.trackEl.style.transform = 'translateX(' + -this.windowStart * COL / 20 + 'rem)';
+    // The highlight is its own box over the row, not a style on a column:
+    // restyling a column made the TV repaint the whole row on every press.
+    this.focusEl.style.transform = 'translateX(' + (this.hour - this.windowStart) * COL / 20 + 'rem)';
+  };
+
+  Forecast.prototype.buildColumns = function (from, to) {
+    const zone = this.data.timezone;
+    const imperial = GTV.weather.units() === 'fahrenheit';
+    const shortDay = formatter(zone, { weekday: 'short' });
+    const x = (i) => (i - from) * COL + COL / 2;
+    const y = (i) => {
+      const entry = this.hours[i];
+      const range = this.weekRange(this.weekStart(entry.day));
+      return LINE_TOP + (1 - (entry.h.temperature - range.lo) / (range.hi - range.lo)) * LINE_BAND;
+    };
+
+    let line = '';
+    let points = '';
+    let html = '';
+    for (let i = from; i < to; i++) {
+      const entry = this.hours[i];
+      const h = entry.h;
+      const midnight = entry.inDay === 0;
+      if (h.temperature != null) {
+        // The line restarts where a new strip week (and so a new scale) begins.
+        const restart = !line || (midnight && this.weekStart(entry.day) !== this.weekStart(entry.day - 1));
+        line += (restart ? 'M' : 'L') + x(i).toFixed(1) + ' ' + y(i).toFixed(1);
+        const isNow = i === this.now;
+        points +=
+          '<circle class="fc-point' + (isNow ? ' is-now' : '') + '" cx="' + x(i).toFixed(1) + '" cy="' + y(i).toFixed(1) + '" r="' + (isNow ? 9 : 5) + '"/>' +
+          '<text class="fc-point-temp" x="' + x(i).toFixed(1) + '" y="' + (y(i) - 18).toFixed(1) + '">' + GTV.weather.formatTemp(h.temperature) + '</text>';
+      }
+      const label = (midnight ? shortDay.format(new Date(h.time)) + ' ' : '') + GTV.clock.format(new Date(h.time), zone);
+      let rain;
+      if (entry.day < this.today) rain = h.rain > 0 ? (imperial ? h.rain.toFixed(2) + '″' : h.rain.toFixed(1) + ' mm') : '0 mm';
+      else rain = h.rainChance != null ? Math.round(h.rainChance) + '%' : '–';
+      const dry = entry.day < this.today ? !(h.rain > 0) : !h.rainChance;
+      html +=
+        (midnight ? '<div class="fc-divider" style="left:' + ((i - from) * COL - 1) / 20 + 'rem"></div>' : '') +
+        '<div class="fc-col" style="left:' + ((i - from) * COL) / 20 + 'rem">' +
+        '<div class="fc-col-time' + (midnight ? ' is-midnight' : '') + '">' + label + '</div>' +
+        '<div class="fc-col-icon">' + GTV.weather.icon(h.code, h.isDay) + '</div>' +
+        '<div class="fc-col-rain' + (dry ? ' is-dry' : '') + '">' + UMBRELLA + rain + '</div></div>';
+    }
+    const width = (to - from) * COL;
+    this.trackEl.innerHTML =
+      '<svg class="fc-line" viewBox="0 0 ' + width + ' ' + ROW_H + '" width="' + width / 20 + 'rem" height="' + ROW_H / 20 + 'rem">' +
+      '<path d="' + line + '"/>' + points + '</svg>' + html;
+    this.trackEl.style.left = (from * COL) / 20 + 'rem';
+    this.columns = Array.prototype.slice.call(this.trackEl.querySelectorAll('.fc-col'));
+    this.rendered = { from: from, to: to };
+  };
+
+  // Strip: the 7-day week (counted from today) the selected day is in.
+  // Within the same week only the highlight moves.
+  Forecast.prototype.renderStrip = function (selected) {
+    const start = this.weekStart(selected);
+    if (this.strip && this.strip.data === this.data && this.strip.start === start) {
+      this.strip.cells.forEach((cell, n) => cell.classList.toggle('is-selected', start + n === selected));
       return;
     }
-    this.strip = { data: data, key: stripKey, cells: [] };
+    this.strip = { data: this.data, start: start, cells: [] };
     this.stripEl.innerHTML = '';
     for (let i = start; i < start + DAYS_PER_STRIP; i++) {
-      const d = data.daily[i];
+      const d = this.data.daily[i];
       const cell = make('div', 'fc-cell', this.stripEl);
       this.strip.cells.push(cell);
       if (!d) {
         cell.classList.add('is-empty');
         continue;
       }
-      cell.classList.toggle('is-selected', i === index);
-      cell.classList.toggle('is-past', i < today);
-      make('div', 'fc-cell-name', cell, name(i - today, d, true));
+      cell.classList.toggle('is-selected', i === selected);
+      cell.classList.toggle('is-past', i < this.today);
+      const offset = i - this.today;
+      make('div', 'fc-cell-name', cell, offset === 0 || offset === 1 ? this.dayName(i) : this.dayName(i, true));
       make('div', 'fc-cell-icon', cell).innerHTML = GTV.weather.icon(d.code, true);
       const t = make('div', 'fc-cell-temps', cell, GTV.weather.formatTemp(d.max));
       make('span', null, t, GTV.weather.formatTemp(d.min));
     }
   };
 
-  // Hourly temperature as a line, with rain as bars: the chance of rain for
-  // today and later, the amount that fell for past days.
-  Forecast.prototype.chart = function (day, past, zone) {
-    const hours = day.hours || [];
-    if (hours.length < 2) return '';
-    const temps = hours.map((h) => h.temperature).filter((t) => t != null);
-    const lo = Math.min.apply(null, temps) - 1;
-    const hi = Math.max.apply(null, temps) + 1;
-    const top = 50; // room for the labels above the line
-    const base = CHART_H - 40; // the hour labels sit below this
-    const x = (i) => 30 + (i / (hours.length - 1)) * (CHART_W - 60);
-    const y = (t) => top + (1 - (t - lo) / (hi - lo)) * (base - top - 70);
-    let line = '';
-    let bars = '';
-    let labels = '';
-    hours.forEach((h, i) => {
-      if (h.temperature != null) line += (line ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h.temperature).toFixed(1);
-      const share = past ? Math.min(1, (h.rain || 0) / 4) : (h.rainChance || 0) / 100;
-      if (share > 0) {
-        const height = share * 60;
-        bars += '<rect x="' + (x(i) - 14).toFixed(1) + '" y="' + (base - height).toFixed(1) + '" width="28" height="' + height.toFixed(1) + '" rx="4"/>';
-      }
-      if (i % 3 === 0 && h.temperature != null) {
-        labels +=
-          '<text class="fc-chart-temp" x="' + x(i).toFixed(1) + '" y="' + (y(h.temperature) - 18).toFixed(1) + '">' + GTV.weather.formatTemp(h.temperature) + '</text>' +
-          '<text class="fc-chart-hour" x="' + x(i).toFixed(1) + '" y="' + (base + 34) + '">' + GTV.clock.format(new Date(h.time), zone) + '</text>';
-      }
-    });
-    // Mark the current hour on today's chart.
-    let now = '';
-    const nowMs = Date.now();
-    if (nowMs >= hours[0].time && nowMs < hours[hours.length - 1].time + 3600 * 1000) {
-      const i = Math.min(hours.length - 1, Math.floor((nowMs - hours[0].time) / 3600000));
-      if (hours[i].temperature != null) now = '<circle class="fc-chart-now" cx="' + x(i).toFixed(1) + '" cy="' + y(hours[i].temperature).toFixed(1) + '" r="9"/>';
+  // ---- Keys ---------------------------------------------------------------------
+
+  // Change day, keeping the time of day; today goes back to the current hour.
+  Forecast.prototype.moveDay = function (step) {
+    const entry = this.hours[this.hour];
+    const target = entry.day + step;
+    if (target < 0 || target >= this.data.daily.length || this.dayStart[target] == null) return;
+    if (target === this.today) {
+      this.hour = this.now;
+    } else {
+      const count = this.data.daily[target].hours.length;
+      this.hour = this.dayStart[target] + Math.min(entry.inDay, count - 1);
     }
-    return (
-      '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" height="100%">' +
-      '<g class="fc-chart-bars">' + bars + '</g>' +
-      '<path class="fc-chart-line" d="' + line + '"/>' + now + labels +
-      '</svg>'
-    );
+    this.render();
   };
 
-  Forecast.prototype.move = function (step) {
-    if (!this.data) return;
-    const today = this.todayIndex();
-    const next = this.offset + step;
-    if (today + next < 0 || today + next >= this.data.daily.length) return;
-    this.offset = next;
+  Forecast.prototype.moveHour = function (step) {
+    const next = this.hour + step;
+    if (next < 0 || next >= this.hours.length) return;
+    this.hour = next;
     this.render();
   };
 
   Forecast.prototype.onKey = function (key) {
-    if (key === 'LEFT' || key === 'REWIND') {
-      this.move(-1);
+    if (!this.data) return false;
+    const left = key === 'LEFT' || key === 'REWIND';
+    const right = key === 'RIGHT' || key === 'FAST_FORWARD';
+    if (this.focus === 'days') {
+      if (left || right) {
+        this.moveDay(right ? 1 : -1);
+        return true;
+      }
+      if (key === 'UP') {
+        this.focus = 'hours';
+        this.render();
+        return true;
+      }
+      return false; // ▼ leaves the page
+    }
+    if (left || right) {
+      this.moveHour(right ? 1 : -1);
       return true;
     }
-    if (key === 'RIGHT' || key === 'FAST_FORWARD') {
-      this.move(1);
+    if (key === 'DOWN') {
+      this.focus = 'days';
+      this.render();
       return true;
     }
-    return false;
+    return false; // ▲ leaves the page
+  };
+
+  Forecast.prototype.reset = function () {
+    this.focus = 'days';
+    this.hour = this.now;
+    this.windowStart = this.now;
+    this.render();
   };
 
   Forecast.prototype.onBack = function () {
-    if (this.offset === 0) return false;
-    this.offset = 0;
-    this.render();
+    if (!this.data || (this.focus === 'days' && this.hour === this.now)) return false;
+    this.reset();
     return true;
   };
 
-  // Coming back after a while starts from today again.
+  // The page is entered on the day strip; after a while away, back at now.
   Forecast.prototype.onShow = function () {
-    if (this.hiddenAt && Date.now() - this.hiddenAt > RESET_AFTER_HIDDEN_MS && this.offset !== 0) {
-      this.offset = 0;
+    if (!this.data) return;
+    this.now = this.nowIndex();
+    if (this.hiddenAt && Date.now() - this.hiddenAt > RESET_AFTER_HIDDEN_MS) {
+      this.reset();
+    } else if (this.focus !== 'days') {
+      this.focus = 'days';
       this.render();
     }
   };
@@ -269,6 +409,7 @@
   };
 
   Forecast.prototype.unmount = function () {
+    clearInterval(this.clockTimer);
     this.unsubscribe.forEach((off) => off());
   };
 
