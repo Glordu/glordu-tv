@@ -57,6 +57,15 @@
   .d { flex: 1; margin: 0 8px; padding: 14px 0; border-radius: 16px; text-align: center; background: rgba(255,255,255,0.05); border: 3px solid transparent; }
   .d.sel { background: rgba(255,255,255,0.08); }
   .focus-days .d.sel { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.85); }
+  /* How the strip marks the selected day while the hours row has focus (H cycles) */
+  .d { position: relative; transition: opacity 0.2s; }
+  .v-a.focus-hours .d.sel { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.12); }
+  .v-b.focus-hours .d:not(.sel) { opacity: 0.4; }
+  .v-b.focus-hours .d.sel { background: rgba(255,255,255,0.12); }
+  .v-c.focus-hours .d.sel { background: rgba(255,255,255,0.12); }
+  .v-c.focus-hours .d.sel::before { content: ''; position: absolute; top: -3px; left: 18%; right: 18%; height: 6px; border-radius: 3px; background: #8fc4ff; }
+  .v-d.focus-hours .d.sel { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.12); }
+  .v-d.focus-hours .d.sel::before { content: ''; position: absolute; top: -17px; left: 50%; margin-left: -14px; border: 14px solid transparent; border-top: 0; border-bottom-color: rgba(255,255,255,0.45); }
   .d .n { font-size: 26px; } .d svg { width: 56px; height: 56px; margin: 6px 0; } .d .r { font-size: 26px; } .d .r span { opacity: 0.55; margin-left: 8px; }
 
   #toast { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); padding: 16px 28px; border-radius: 12px; background: rgba(20,20,20,0.92); font-size: 28px; opacity: 0; transition: opacity 0.3s; }
@@ -84,7 +93,8 @@
   const icon = (code, day) => W.icon(code, day !== false).replace('width="1em" height="1em"', '');
 
   let data, toastTimer;
-  const state = { hour: 0, focus: 'days', windowStart: 0, scale: 'day' };
+  const state = { hour: 0, focus: 'days', windowStart: 0, scale: 'week', marker: 'b' };
+  const MARKERS = { none: 'none (current)', a: 'A · softer outline', b: 'B · dim the other days', c: 'C · accent bar', d: 'D · outline + notch' };
 
   function toast(t) {
     const el = document.getElementById('toast');
@@ -156,6 +166,7 @@
     const tv = document.getElementById('tv');
     tv.classList.toggle('focus-hours', state.focus === 'hours');
     tv.classList.toggle('focus-days', state.focus === 'days');
+    ['a', 'b', 'c', 'd'].forEach((m) => tv.classList.toggle('v-' + m, state.marker === m));
     const di = dayOf(state.hour), d = data.days[di];
     tv.querySelector('.dayinfo .title').textContent = dayName(di) + ' · ' + dateText(di);
     tv.querySelector('.dayinfo .range').innerHTML = deg(d.max) + '<span>' + deg(d.min) + '</span>';
@@ -185,6 +196,7 @@
   function renderLegend() {
     document.getElementById('legend').innerHTML =
       '<b>◀ ▶</b> day (strip) or hour (hours row) &nbsp; <b>▲ ▼</b> between the rows, then other pages &nbsp; <b>Esc</b> Back to now<br>' +
+      '<b>H</b> selected day in the strip, while in the hours row: ' + Object.keys(MARKERS).map((m) => '<span class="' + (state.marker === m ? 'on' : '') + '">' + MARKERS[m] + '</span>').join(' · ') + '<br>' +
       '<b>S</b> temperature line scaled to: <span class="' + (state.scale === 'day' ? 'on' : '') + '">each day</span> · <span class="' + (state.scale === 'week' ? 'on' : '') + '">the whole week</span>';
   }
 
@@ -192,7 +204,10 @@
     const k = e.key;
     if (!data) return;
     e.preventDefault();
-    if (k === 's' || k === 'S') {
+    if (k === 'h' || k === 'H') {
+      const keys = Object.keys(MARKERS);
+      state.marker = keys[(keys.indexOf(state.marker) + 1) % keys.length];
+    } else if (k === 's' || k === 'S') {
       state.scale = state.scale === 'day' ? 'week' : 'day';
       buildTrack();
     } else if (state.focus === 'hours') {

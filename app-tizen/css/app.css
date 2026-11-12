@@ -466,7 +466,13 @@ body {
 }
 
 .fc-cell.is-selected {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* While the hours row has focus, the other days fade so the selected one
+   stands out without competing with the hours row's highlight. */
+.is-focus-hours .fc-cell:not(.is-selected) {
+  opacity: 0.4;
 }
 
 .is-focus-days .fc-cell.is-selected {
