@@ -18,7 +18,7 @@ const STUDIO = process.env.TIZEN_STUDIO || 'C:\\tizen-studio';
 const PROFILE = process.env.TIZEN_PROFILE || 'glordu';
 const isWindows = process.platform === 'win32';
 const TIZEN = path.join(STUDIO, 'tools', 'ide', 'bin', isWindows ? 'tizen.bat' : 'tizen');
-const SDB = path.join(STUDIO, 'tools', isWindows ? 'sdb.exe' : 'sdb');
+export const SDB = path.join(STUDIO, 'tools', isWindows ? 'sdb.exe' : 'sdb');
 // The TV's installer fails silently on a package name with spaces, and the
 // default name comes from <name> in config.xml ("Glordu TV").
 export const PACKAGE = 'GlorduTV.wgt';
@@ -53,7 +53,7 @@ export function renamePackage(dir) {
   return path.join(dir, PACKAGE);
 }
 
-function run(cmd, args, { capture = false } = {}) {
+export function run(cmd, args, { capture = false } = {}) {
   const result = spawnSync(cmd, args, {
     cwd: ROOT,
     encoding: 'utf8',

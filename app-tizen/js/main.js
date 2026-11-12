@@ -8,5 +8,6 @@
   GTV.data.loadConfig().then((config) => {
     GTV.config = config;
     GTV.start(document.getElementById('app'), config.startModule || 'ambient');
+    GTV.log.started('Started ' + GTV.VERSION + ' (' + GTV.platform.name + ')');
   });
 })();

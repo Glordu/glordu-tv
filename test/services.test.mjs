@@ -32,6 +32,19 @@ test('when the network fails, the last saved copy is used', async () => {
   assert.match(entry.error, /offline/);
 });
 
+test('a failed fetch is logged, saying whether the saved copy was used', async () => {
+  let online = true;
+  const win = dataApp(() => (online ? response({ version: 1 }) : Promise.reject(new Error('offline'))));
+  await win.GTV.data.fetchJson('https://example.test/a.json?lat=41.39');
+  online = false;
+  await win.GTV.data.fetchJson('https://example.test/a.json?lat=41.39');
+  await win.GTV.data.fetchJson('https://example.test/b.json').catch(() => {});
+  assert.deepEqual(win.warnings, [
+    "Couldn't fetch https://example.test/a.json: offline, using the saved copy",
+    "Couldn't fetch https://example.test/b.json: offline",
+  ]);
+});
+
 test('an HTTP error counts as a failure and falls back to the saved copy', async () => {
   let status = 200;
   const win = dataApp(() => Promise.resolve({ ok: status === 200, status: status, json: () => Promise.resolve({ version: 1 }) }));

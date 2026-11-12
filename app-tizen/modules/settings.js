@@ -1,6 +1,7 @@
 // Settings: choices stored on this TV (see js/prefs.js), never in the public
 // config. ▲▼ move between rows, ◀▶ change the value, OK on Location opens a
-// city search that uses the TV's on-screen keyboard.
+// city search that uses the TV's on-screen keyboard, and OK on Log shows the
+// problem log (js/log.js).
 (function () {
   'use strict';
 
@@ -51,6 +52,35 @@
     return el;
   }
 
+  const LOG_PAGE = 12; // log entries on screen at once
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function pad(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  // "12 Nov 22:40:05", in the TV's own time.
+  function logTime(at) {
+    const d = new Date(at);
+    return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+
+  // "2 errors, 1 warning · latest 12 Nov 22:40:05", counting repeats.
+  function logSummary(entries) {
+    const count = { error: 0, warn: 0 };
+    let latest = null;
+    entries.forEach((e) => {
+      if (!(e.level in count)) return;
+      count[e.level] += e.n || 1;
+      latest = e.at;
+    });
+    if (!latest) return 'No problems';
+    const parts = [];
+    if (count.error) parts.push(count.error + (count.error === 1 ? ' error' : ' errors'));
+    if (count.warn) parts.push(count.warn + (count.warn === 1 ? ' warning' : ' warnings'));
+    return parts.join(', ') + ' · latest ' + logTime(latest);
+  }
+
   function cycle(list, current, step) {
     const i = Math.max(0, list.indexOf(current));
     return list[(i + step + list.length) % list.length];
@@ -80,6 +110,7 @@
     this.resultEls = [];
     this.resultFocus = -1; // -1 is the search box
     this.searchToken = 0;
+    this.logTop = 0; // first log entry on screen, counting from the newest
     this.dead = false;
 
     root.classList.add('settings');
@@ -100,9 +131,14 @@
     this.searchStatus = make('p', 'settings-status', this.searchView);
     this.resultsEl = make('div', 'settings-results', this.searchView);
 
+    this.logView = make('div', 'settings-view is-hidden', root);
+    make('h1', null, this.logView, 'Log');
+    this.logStatus = make('p', 'settings-status', this.logView);
+    this.logEl = make('div', 'settings-log', this.logView);
+
     this.rows = this.defineRows();
     this.rowEls = this.rows.map((row) => {
-      const el = make('div', 'settings-row', rowsEl);
+      const el = make('div', 'settings-row' + (row.action ? ' is-action' : ''), rowsEl);
       make('div', 'settings-label', el, row.label);
       const body = make('div', 'settings-body', el);
       row.valueEl = make('div', 'settings-value', body);
@@ -176,12 +212,23 @@
         value: () => (GTV.clock.mode() === '12h' ? '12-hour' : '24-hour'),
         change: () => GTV.prefs.set('clock', GTV.clock.mode() === '12h' ? '24h' : '12h'),
       },
+      {
+        label: 'Log',
+        action: true, // OK opens it; nothing to change with ◀▶
+        value: () => logSummary(GTV.log.entries()),
+        note: () => 'Warnings, errors and app starts on this TV. OK shows them.',
+        change: function () {},
+        enter: function () {
+          self.openLog();
+        },
+      },
     ];
   };
 
   Settings.prototype.render = function () {
     this.listView.classList.toggle('is-hidden', this.mode !== 'list');
     this.searchView.classList.toggle('is-hidden', this.mode !== 'search');
+    this.logView.classList.toggle('is-hidden', this.mode !== 'log');
     this.rows.forEach((row, i) => {
       row.valueEl.textContent = row.value();
       row.noteEl.textContent = row.note ? row.note() : '';
@@ -213,6 +260,47 @@
     this.input.blur();
     this.mode = 'list';
     this.render();
+  };
+
+  Settings.prototype.openLog = function () {
+    this.mode = 'log';
+    this.logTop = 0;
+    this.renderLog();
+    this.render();
+  };
+
+  Settings.prototype.closeLog = function () {
+    this.mode = 'list';
+    this.render();
+  };
+
+  // Newest first, LOG_PAGE at a time from logTop.
+  Settings.prototype.renderLog = function () {
+    const entries = GTV.log.entries().slice().reverse();
+    this.logTop = Math.max(0, Math.min(this.logTop, entries.length - LOG_PAGE));
+    const shown = entries.slice(this.logTop, this.logTop + LOG_PAGE);
+    this.logEl.innerHTML = '';
+    shown.forEach((e) => {
+      const el = make('div', 'settings-log-entry is-' + e.level, this.logEl);
+      make('div', 'settings-log-time', el, logTime(e.at));
+      make('div', 'settings-log-msg', el, e.msg);
+      if (e.n > 1) make('div', 'settings-log-count', el, '×' + e.n);
+    });
+    this.logStatus.textContent = entries.length
+      ? 'Newest first · ' + (this.logTop + 1) + '–' + (this.logTop + shown.length) + ' of ' + entries.length +
+        (entries.length > LOG_PAGE ? ' · ▲▼ scroll' : '') + ' · Back returns'
+      : 'Nothing logged yet. Back returns.';
+  };
+
+  Settings.prototype.onLogKey = function (key) {
+    if (key === 'UP' && this.logTop > 0) {
+      this.logTop--;
+      this.renderLog();
+    } else if (key === 'DOWN') {
+      this.logTop++;
+      this.renderLog();
+    }
+    return true;
   };
 
   Settings.prototype.setResults = function (results) {
@@ -294,6 +382,7 @@
 
   Settings.prototype.onKey = function (key) {
     if (this.mode === 'search') return this.onSearchKey(key);
+    if (this.mode === 'log') return this.onLogKey(key);
     const row = this.rows[this.focus];
     switch (key) {
       // Past the first or last setting, ▲▼ move the page stack instead.
@@ -322,10 +411,14 @@
     }
   };
 
-  // Back closes the city search, then returns to the first setting.
+  // Back closes the city search or the log, then returns to the first setting.
   Settings.prototype.onBack = function () {
     if (this.mode === 'search') {
       this.closeSearch();
+      return true;
+    }
+    if (this.mode === 'log') {
+      this.closeLog();
       return true;
     }
     if (this.focus !== 0) {
@@ -338,11 +431,14 @@
 
   Settings.prototype.onShow = function () {
     this.renderAbout();
+    this.render(); // the Log row may have news
   };
 
-  // Leaving the page (or the idle return) closes the search and its keyboard.
+  // Leaving the page (or the idle return) closes the search and its
+  // keyboard, and the log.
   Settings.prototype.onHide = function () {
     if (this.mode === 'search') this.closeSearch();
+    if (this.mode === 'log') this.closeLog();
   };
 
   // Version and where the data came from, for checking things on the TV.

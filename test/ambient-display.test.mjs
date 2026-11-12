@@ -160,4 +160,22 @@ test('after 10 failures in a row, the slideshow says so and retries a minute lat
   win.tick(60 * SECOND);
   assert.ok(showing(), 'a photo shows once they load again');
   assert.equal(s.statusEl.textContent, '');
+  // Logged as one line, without blaming the photos it couldn't reach.
+  assert.deepEqual(win.warnings, ["Can't load photos: 10 failed in a row"]);
+});
+
+test('photos that fail on the way to one that loads are logged as dead links', async () => {
+  const dead = new Set();
+  const { win, s } = await slideshow(photos(10), (url) => (dead.has(url) ? null : url.endsWith('#small') ? { width: 100 } : { width: 1920 }));
+  const ahead = (k) => s.images[s.order[s.pos + k]].url;
+  const gone = ahead(1);
+  const placeholder = ahead(2);
+  dead.add(gone);
+  s.images[s.order[s.pos + 2]].url = placeholder + '#small';
+  s.onKey('RIGHT');
+  win.tick(0);
+  assert.deepEqual(win.warnings, ["Skipped 2 photo(s) that didn't load: " + gone + ' ' + placeholder + '#small (100 px placeholder)']);
+  s.onKey('RIGHT');
+  win.tick(0);
+  assert.equal(win.warnings.length, 1, 'not repeated for the next photo');
 });

@@ -83,6 +83,7 @@
             at: cached ? cached.at : null,
             error: String((err && err.message) || err),
           };
+          console.warn("Couldn't fetch " + url.split('?')[0] + ': ' + log[url].error + (cached ? ', using the saved copy' : ''));
           if (cached) return cached.body;
           throw err;
         }

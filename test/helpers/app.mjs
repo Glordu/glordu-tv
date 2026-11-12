@@ -16,6 +16,9 @@
 //   win.press(key, target)  dispatches a keydown, e.g. 'ArrowDown', 'Escape';
 //                           pass { keyCode } as `key` for the TV's key codes
 //   win.dispatch(type)      fires another document event, e.g. 'visibilitychange'
+//   win.fire(type, event)   fires a window event, e.g. 'error'
+//   win.warnings            what the app passed to console.warn and
+//                           console.error, as text; kept here, not printed
 //   win.tick(ms)            advances fake timers
 //   win.storage             the localStorage contents (a Map)
 //
@@ -36,7 +39,6 @@ function fakeElement(tag) {
     style: {},
     children: [],
     textContent: '',
-    innerHTML: '',
     title: '',
     value: '',
     offsetWidth: 0,
@@ -50,6 +52,13 @@ function fakeElement(tag) {
         else classes.delete(n);
         return on;
       },
+    },
+    // Setting it replaces the children; only clearing ('') is used.
+    get innerHTML() {
+      return '';
+    },
+    set innerHTML(value) {
+      el.children = [];
     },
     get className() {
       return Array.from(classes).join(' ');
@@ -114,6 +123,9 @@ export function loadApp(files, globals, options) {
   options = options || {};
   const storage = new Map();
   const listeners = {};
+  const windowListeners = {};
+  const warnings = [];
+  const keep = (...args) => warnings.push(args.map(String).join(' '));
   const byId = {};
   const timers = options.fakeTimers ? fakeTimerQueue() : null;
   const setT = timers ? timers.set : setTimeout;
@@ -141,7 +153,8 @@ export function loadApp(files, globals, options) {
   }
 
   const sandbox = {
-    console,
+    console: Object.assign({}, console, { warn: keep, error: keep }),
+    addEventListener: (type, fn) => (windowListeners[type] = windowListeners[type] || []).push(fn),
     setTimeout: setT,
     clearTimeout: clearT,
     // Recurring timers never fire in tests; they'd keep Node running.
@@ -180,6 +193,8 @@ export function loadApp(files, globals, options) {
   }
 
   sandbox.storage = storage;
+  sandbox.warnings = warnings;
+  sandbox.fire = (type, event) => (windowListeners[type] || []).forEach((fn) => fn(event || {}));
   sandbox.tick = (ms) => {
     if (!timers) throw new Error('loadApp(..., { fakeTimers: true }) to use tick()');
     timers.tick(ms);

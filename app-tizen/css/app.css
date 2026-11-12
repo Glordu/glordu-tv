@@ -574,12 +574,12 @@ body {
 /* Settings */
 
 .settings {
-  padding: 3.5rem 5rem;
+  padding: 3rem 5rem 3.5rem;
   background: #0a0d14 url(../img/page-bg.png) 0 0 / 100% 100% no-repeat;
 }
 
 .settings h1 {
-  margin: 0 0 1.8rem;
+  margin: 0 0 1.4rem;
   font-size: 2.6rem;
   font-weight: 400;
 }
@@ -590,7 +590,7 @@ body {
 
 .settings-rows,
 .settings-results {
-  margin-bottom: 2.4rem;
+  margin-bottom: 1.8rem;
 }
 
 .settings-row,
@@ -598,7 +598,7 @@ body {
   display: flex;
   align-items: baseline;
   margin-bottom: 0.6rem;
-  padding: 1.1rem 1.6rem;
+  padding: 0.8rem 1.6rem;
   border: 0.15rem solid transparent;
   border-radius: 0.8rem;
   background: rgba(255, 255, 255, 0.05);
@@ -634,6 +634,12 @@ body {
 .settings-row.is-focused .settings-value::after {
   content: ' ▶';
   opacity: 0.6;
+}
+
+/* A row that opens something rather than changing a value. */
+.settings-row.is-action .settings-value::before,
+.settings-row.is-action .settings-value::after {
+  content: none;
 }
 
 .settings-note {
@@ -673,6 +679,49 @@ body {
   margin: 1rem 0;
   font-size: 1.2rem;
   opacity: 0.75;
+}
+
+/* Log (Settings → Log), newest first */
+
+.settings-log-entry {
+  display: flex;
+  align-items: baseline;
+  padding: 0.55rem 1.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1.15rem;
+  line-height: 1.45;
+}
+
+.settings-log-time {
+  flex: 0 0 11rem;
+  opacity: 0.6;
+}
+
+/* At most two lines each: long photo links would push the rest off-screen. */
+.settings-log-msg {
+  flex: 1;
+  min-width: 0;
+  max-height: 2.9em;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.settings-log-count {
+  flex: 0 0 auto;
+  padding-left: 1.2rem;
+  opacity: 0.6;
+}
+
+.settings-log-entry.is-error .settings-log-msg {
+  color: #ff9d91;
+}
+
+.settings-log-entry.is-warn .settings-log-msg {
+  color: #ffd27a;
+}
+
+.settings-log-entry.is-info .settings-log-msg {
+  opacity: 0.6;
 }
 
 /* About, at the bottom of Settings */

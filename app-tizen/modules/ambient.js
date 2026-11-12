@@ -10,6 +10,7 @@
 //
 // A photo is only shown once it has fully loaded, so a dead link never
 // reaches the screen: the current photo stays up and the next one is tried.
+// Dead links go in the log (Settings → Log) once a later photo loads.
 //
 // Photos play as a loop: all of them shuffled once, then walked in order.
 // The loop and position are saved on the TV, so it carries on across
@@ -114,6 +115,7 @@
     this.favShown = []; // ids of favorites shown in the current round
     this.currentUrl = null; // the photo on screen
     this.broken = new Set();
+    this.skipped = []; // photos that failed since the last one loaded
     this.fails = 0;
     this.paused = false; // paused with the remote
     this.hidden = false; // another page is showing
@@ -381,26 +383,35 @@
     const item = this.images[index];
     clearTimeout(this.timer);
     const img = new Image();
-    const skip = () => {
+    const skip = (why) => {
       if (this.dead || token !== this.token) return;
       this.broken.add(index);
       this.fails++;
+      this.skipped.push(item.url + (why ? ' (' + why + ')' : ''));
       if (this.fails >= MAX_CONSECUTIVE_FAILS) {
         this.fails = 0;
+        // Probably the connection rather than the photos, so not listed.
+        console.warn("Can't load photos: " + MAX_CONSECUTIVE_FAILS + ' failed in a row');
+        this.skipped = [];
         this.setStatus("Can't load photos. Retrying in a minute…");
         this.timer = setTimeout(() => this.next(), RETRY_MS);
         return;
       }
       this.step(dir || 1, instant); // keep going the way the viewer was going
     };
-    img.onerror = skip;
+    img.onerror = () => skip();
     img.onload = () => {
       if (this.dead || token !== this.token) return;
       if (img.naturalWidth < MIN_PHOTO_WIDTH) {
-        skip();
+        skip(img.naturalWidth + ' px placeholder');
         return;
       }
       this.fails = 0;
+      // Others load, so the ones skipped on the way here are broken links.
+      if (this.skipped.length) {
+        console.warn('Skipped ' + this.skipped.length + " photo(s) that didn't load: " + this.skipped.join(' '));
+        this.skipped = [];
+      }
       this.currentUrl = item.url;
       this.swap(item, instant);
       this.setStatus(this.paused ? 'Paused' : '');

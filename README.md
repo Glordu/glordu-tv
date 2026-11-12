@@ -61,7 +61,7 @@ Its settings come from `modules.<id>` in `config.json`.
 |-----------|--------------|
 | `ambient` | Photo slideshow with weather and clock in the bottom-right corner. ◀ ▶: previous/next photo. OK: favorite or unfavorite the photo (a heart fills or empties at top-right). Play/Pause: pause. Info: hide the clock and weather. Favorites are saved on the TV and get extra turns between the other photos: each comes back about once every 100 photos, and together they never take more than a quarter of the turns, so every photo still shows once per pass. |
 | `weather` | Current weather (with "feels like") and the clock at the top, the selected day's high/low, rain, wind and sun times beside them, a row of 6 hours (temperature line, icon, chance of rain), and the week's day strip. The page opens on the strip: ◀ ▶ change day (at the current time of day), ▲ moves to the hours row, where ◀ ▶ step an hour at a time across midnight into other days. Back returns to now. Range: 4 weeks back to the end of the 16-day forecast; past hours show the rain that fell. The temperature line is scaled per strip week, so equal temperatures sit at equal heights. |
-| `settings` | Location, time zone, temperature units and clock format, saved on the TV, with an About section (version, location source, resolution, where each data file came from). ▲ ▼ move through the settings and only leave the page past the first or last one. |
+| `settings` | Location, time zone, temperature units and clock format, saved on the TV; the problem log (OK on Log); an About section (version, location source, resolution, where each data file came from). ▲ ▼ move through the settings and only leave the page past the first or last one. |
 
 `design/` holds the interactive mockups the layouts were chosen from (open
 them through `npm run serve`): `mockup.html` for the page stack (made-up
@@ -83,6 +83,7 @@ Choices made in Settings are stored on the TV (`localStorage`, see
 - **Time zone** (`js/clock.js`): *TV setting* (default; the TV's own clock), *Same as
   location*, or a zone from a short list.
 - **Temperature** °C/°F and **Clock** 24-hour/12-hour override `config.json`.
+- **Log**: the problem log (below). OK opens it, newest first; ▲▼ scroll.
 
 While a text field has focus, only OK, Back and ▲▼ reach the app; other keys
 type into the field. The keyboard's Done and Cancel keys (65376, 65385) are
@@ -115,7 +116,30 @@ has fully loaded. If a link is dead, or returns a small "unavailable"
 placeholder (under 640px wide), the current photo stays up, the bad one is
 skipped for the rest of the round, and the next one is tried. After 10
 failures in a row (no network, say) it keeps the current photo and retries a
-minute later.
+minute later. Dead links are listed in the log once a later photo loads;
+a run of 10 failures is logged as one line instead.
+
+### Log
+
+`js/log.js` keeps the last 100 warnings, errors and app starts in the TV's
+`localStorage` (`gtv:log`), so they outlive a crash or restart. It loads
+before every other script and records `console.warn`/`console.error`,
+uncaught errors, unhandled promise failures and scripts that fail to load;
+the same message twice in a row is counted rather than repeated. Failed
+fetches (and whether the saved copy was used) and dead photo links are logged
+too.
+
+If the app fails to start, the error replaces "Loading…" on screen, and so
+does a start that hasn't happened after a minute. To read the whole log from
+the PC, even when Settings can't be reached:
+
+```bash
+npm run log
+```
+
+`scripts/tv-log.mjs` reads it through the TV's debugger (relaunching the app
+in debug mode if needed), so it only needs the page to load; `-- --clear`
+empties it afterwards.
 
 ## Photos
 
@@ -197,15 +221,17 @@ has broken or easily could:
 | `core.test.mjs` | the page stack: moving and bouncing, keys going to the page first, the Back sequence and exit window, the idle return, typing in text fields, the Yellow-key readout |
 | `ambient.test.mjs` | the slideshow loop: wrapping, reshuffling, skipping dead photos, carrying on across restarts and list changes |
 | `favorites.test.mjs` | favorites' extra turns: 1% each up to a quarter, taking turns evenly, the loop unchanged, ◀ from a favorite, dead or removed favorites, carrying on across restarts |
-| `ambient-display.test.mjs` | the slideshow on screen: the interval, pausing while hidden, OK showing the heart and saving the favorite, remote presses restarting the interval, instant vs faded swaps, placeholders never showing, the retry after repeated failures |
+| `ambient-display.test.mjs` | the slideshow on screen: the interval, pausing while hidden, OK showing the heart and saving the favorite, remote presses restarting the interval, instant vs faded swaps, placeholders never showing, the retry after repeated failures, dead links in the log |
 | `location.test.mjs` | chosen city vs automatic vs config fallback; GeoJS, then ipwho.is, then an old guess; the lookup race when choosing a city; caching |
 | `weather.test.mjs` | grouping hours under days (including 23-hour daylight-saving days), parsing, hiding stale readings |
-| `services.test.mjs` | remote data and its offline copy, including after the 15 s timeout; the clock's formats and time zones; the weather request's units and rounded location |
+| `services.test.mjs` | remote data and its offline copy, including after the 15 s timeout, and failures in the log; the clock's formats and time zones; the weather request's units and rounded location |
 | `forecast.test.mjs` | the Weather page: day strip and hours row, day changes landing on now, Back, now moving with the clock, only ~18 hour columns in the page |
-| `settings.test.mjs` | Settings rows and leaving the page at the edges, Back, changing values, the city search |
+| `settings.test.mjs` | Settings rows and leaving the page at the edges, Back, changing values, the city search, the Log row and scrolling the log |
+| `log.test.mjs` | the problem log: what it records, counting repeats, the 100-entry limit, surviving restarts, a failed or stuck start shown on screen |
 | `scripts.test.mjs` | the Chromecast feed parser (with Google's double escaping) and merging photo lists (tags, dates, exclusions) |
 | `rate-limit.test.mjs` | the scripts' link checks: a rate-limited (429) photo is retried and kept, never dropped |
 | `deploy.test.mjs` | picking the TV from `sdb devices`, the app id, renaming the package to `GlorduTV.wgt` |
+| `tv-log.test.mjs` | reading the log from the TV: the debug port, printing entries, whether the app started |
 | `tizen.test.mjs` | the TV's remote key codes (including the on-screen keyboard's Done and Cancel), key registration, the screensaver being set again on return |
 | `data-files.test.mjs` | the published `images.json` and `config.json`: links, no repeats, known sources, valid dates, no excluded photos, the fields the app reads |
 

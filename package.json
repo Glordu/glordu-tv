@@ -14,6 +14,7 @@
     "backup": "node scripts/backup-images.mjs",
     "icon": "node scripts/make-icon.mjs",
     "deploy": "node scripts/deploy-tv.mjs",
+    "log": "node scripts/tv-log.mjs",
     "harvest": "node scripts/harvest-chromecast.mjs"
   }
 }
