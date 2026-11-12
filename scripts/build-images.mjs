@@ -62,16 +62,23 @@ async function main() {
 
   const images = upstream
     .filter((_, i) => alive[i])
-    .map(({ url, author }) => ({ url, author: author || null }));
+    .map(({ url, author }) => ({ url, author: author || null, source: 'archive' }));
+
+  // Photos added by harvest-chromecast.mjs are kept as they are; that script
+  // checks and refreshes them itself.
+  let harvested = [];
+  if (fs.existsSync(OUT)) {
+    harvested = JSON.parse(fs.readFileSync(OUT, 'utf8')).images.filter((img) => img.source === 'chromecast');
+  }
 
   const doc = {
-    source: SOURCE,
+    sources: { archive: SOURCE, chromecast: 'https://clients3.google.com/cast/chromecast/home' },
     generated: new Date().toISOString(),
-    images,
+    images: images.concat(harvested),
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(doc, null, 1) + '\n');
-  console.log(`${images.length} of ${upstream.length} images alive -> ${path.relative(ROOT, OUT)}`);
+  console.log(`${images.length} of ${upstream.length} archive images alive, plus ${harvested.length} from the Chromecast feed -> ${path.relative(ROOT, OUT)}`);
   if (rateLimited) {
     console.log(`${rateLimited} were rate-limited and kept unchecked; re-run later to verify them.`);
   }

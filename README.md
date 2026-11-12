@@ -119,18 +119,29 @@ minute later.
 
 ## Photos
 
-`docs/v1/images.json` lists photos from the
-[Chromecast backgrounds archive](https://github.com/dconnolly/chromecast-backgrounds).
-It links to Google's servers rather than hosting the photos, which belong to
-their photographers. Each entry keeps the photographer's name (`author`, null
-for 50 of them) for possible later use; the app doesn't display it. The archive is from 2019 and its links are dying: in
-November 2026, 403 of the 702 still worked.
+`docs/v1/images.json` lists photos from two sources, marked by each entry's
+`source`:
+
+- **`archive`**: the 2019 [Chromecast backgrounds archive](https://github.com/dconnolly/chromecast-backgrounds).
+  Its links are dying: in November 2026, 403 of the 702 still worked.
+- **`chromecast`**: Google's current Chromecast backdrop feed
+  (`clients3.google.com/cast/chromecast/home`), which returns ~49 random
+  photos per load from a pool of about 400. 405 harvested in November 2026.
+  Listed at 1920×1080; the same links serve the 4K originals with `=s0`.
+
+The list links to Google's servers rather than hosting the photos, which
+belong to their photographers. Each entry keeps the photographer's name
+(`author`) for possible later use; the app doesn't display it.
 
 ```bash
-npm run images   # re-check upstream URLs and rewrite docs/v1/images.json
+npm run harvest  # add new photos from the Chromecast feed, drop dead ones
+npm run images   # re-check the archive's URLs; harvested photos are kept
                  # (Google rate-limits after many requests; those are kept, not dropped)
-npm run backup   # download every listed photo to ./backup (gitignored, ~143 MB)
+npm run backup   # download every listed photo to ./backup (gitignored)
 ```
+
+Whether the feed's links expire is not known yet; re-running `npm run harvest`
+drops any that stopped working and picks up new ones.
 
 The backup is safe to re-run; it skips files it already has. `backup/index.json`
 maps each file to its original URL and photographer. If the links go dark,
