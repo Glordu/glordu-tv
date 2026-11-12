@@ -17,6 +17,9 @@ import { SDB, appIdIn, pickDevice } from './deploy-tv.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOCAL_PORT = 9222;
+// How long to wait for the app to start (after a relaunch, say) before
+// reporting that it hasn't; loading the config alone may take up to 15 s.
+const START_WAIT_MS = 20000;
 const LEVELS = { error: 'ERROR', warn: 'WARN ', info: 'info ' };
 
 // The debug port from `sdb shell 0 debug <app>`, which prints e.g.
@@ -105,13 +108,15 @@ async function main() {
   const page = (await findPage()) || (await relaunchInDebugMode());
   const tv = await connect(page);
   // Straight from localStorage, so it works whatever state the app is in.
-  let state = null;
-  for (let i = 0; i < 20 && !state; i++) {
-    state = await tv.evaluate(
+  const read = () =>
+    tv.evaluate(
       "document.readyState === 'loading' ? null : { log: localStorage.getItem('gtv:log'), " +
         "started: !!document.querySelector('.pager'), boot: (document.querySelector('.boot') || {}).textContent || null }"
     );
-    if (!state) await sleep(500);
+  let state = await read();
+  for (let waited = 0; waited < START_WAIT_MS && !(state && state.started); waited += 500) {
+    await sleep(500);
+    state = (await read()) || state;
   }
   if (!state) throw new Error('The page on the TV never finished loading.');
   console.log(formatLog(JSON.parse(state.log || '[]')));

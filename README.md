@@ -333,3 +333,7 @@ The app then appears in the TV's Apps list. You can pin it to the home bar.
   rather than running all day.
 - Sideloaded apps can disappear after a TV firmware update. Reinstall with
   step 4.
+- What the app keeps on the TV (favorites, Settings, the slideshow's place,
+  the log) survives reinstalling with `npm run deploy`. Uninstalling the
+  app, or losing it to a firmware update, would lose it: there's no other
+  copy.
