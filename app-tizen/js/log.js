@@ -6,8 +6,8 @@
 // Loaded before every other script, so it also catches what goes wrong while
 // they load. It records console.warn and console.error, uncaught errors,
 // promises that fail with nothing handling them, and scripts or stylesheets
-// that fail to load. The same message twice in a row is counted, not stored
-// again. Until the app has started, an error also replaces "Loading…" on
+// that fail to load. The same problem twice in a row is counted, not stored
+// again; app starts always get their own line, so restarts show when. Until the app has started, an error also replaces "Loading…" on
 // screen, and so does a start that still hasn't happened after a minute.
 //
 // Written for the TV's older Chromium: no optional chaining, no ?? operator.
@@ -82,7 +82,7 @@
     if (text.length > MAX_TEXT) text = text.slice(0, MAX_TEXT - 1) + '…';
     const list = read();
     const last = list[list.length - 1];
-    if (last && last.level === level && last.msg === text) {
+    if (level !== 'info' && last && last.level === level && last.msg === text) {
       last.n = (last.n || 1) + 1;
       last.at = Date.now();
     } else {

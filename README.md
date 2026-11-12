@@ -125,7 +125,8 @@ a run of 10 failures is logged as one line instead.
 `localStorage` (`gtv:log`), so they outlive a crash or restart. It loads
 before every other script and records `console.warn`/`console.error`,
 uncaught errors, unhandled promise failures and scripts that fail to load;
-the same message twice in a row is counted rather than repeated. Failed
+the same problem twice in a row is counted rather than repeated, while each
+app start gets its own line, so restarts show when they happened. Failed
 fetches (and whether the saved copy was used) and dead photo links are logged
 too.
 

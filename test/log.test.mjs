@@ -62,6 +62,19 @@ test('the same message again is counted, not stored twice', () => {
   );
 });
 
+test('each app start gets its own line, so restarts show when they happened', () => {
+  const win = logApp();
+  win.GTV.log.started('Started 0.2.0 (tizen)');
+  win.GTV.log.info('Started 0.2.0 (tizen)');
+  assert.deepEqual(
+    entries(win).map((e) => [e.msg, e.n || 1]),
+    [
+      ['Started 0.2.0 (tizen)', 1],
+      ['Started 0.2.0 (tizen)', 1],
+    ]
+  );
+});
+
 test('only the last 100 entries are kept, and long messages are cut short', () => {
   const win = logApp();
   for (let i = 0; i < 130; i++) win.console.warn('problem ' + i);
