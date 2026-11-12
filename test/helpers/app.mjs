@@ -13,7 +13,9 @@
 //               one that fails; used by `new Image()` in the app
 //
 // Helpers on the returned window:
-//   win.press(key, target)  dispatches a keydown, e.g. 'ArrowDown', 'Escape'
+//   win.press(key, target)  dispatches a keydown, e.g. 'ArrowDown', 'Escape';
+//                           pass { keyCode } as `key` for the TV's key codes
+//   win.dispatch(type)      fires another document event, e.g. 'visibilitychange'
 //   win.tick(ms)            advances fake timers
 //   win.storage             the localStorage contents (a Map)
 //
@@ -148,6 +150,7 @@ export function loadApp(files, globals, options) {
     requestAnimationFrame: (fn) => setT(() => fn(Date.now()), 16),
     performance,
     URL,
+    AbortController,
     Image: FakeImage,
     fetch: () => Promise.reject(new Error('No network in tests')),
     localStorage: {
@@ -181,11 +184,13 @@ export function loadApp(files, globals, options) {
     if (!timers) throw new Error('loadApp(..., { fakeTimers: true }) to use tick()');
     timers.tick(ms);
   };
+  // Fires a document event the app listens for, e.g. 'visibilitychange'.
+  sandbox.dispatch = (type, event) => (listeners[type] || []).forEach((fn) => fn(event || {}));
   sandbox.press = (key, target) => {
     let prevented = false;
     const event = {
-      key: key,
-      keyCode: 0,
+      key: typeof key === 'string' ? key : '',
+      keyCode: typeof key === 'object' ? key.keyCode : 0,
       target: target || { tagName: 'BODY' },
       ctrlKey: false,
       altKey: false,

@@ -197,12 +197,16 @@ has broken or easily could:
 | `core.test.mjs` | the page stack: moving and bouncing, keys going to the page first, the Back sequence and exit window, the idle return, typing in text fields, the Yellow-key readout |
 | `ambient.test.mjs` | the slideshow loop: wrapping, reshuffling, skipping dead photos, carrying on across restarts and list changes |
 | `ambient-display.test.mjs` | the slideshow on screen: the interval, pausing while hidden, remote presses restarting the interval, instant vs faded swaps, placeholders never showing, the retry after repeated failures |
-| `location.test.mjs` | chosen city vs automatic vs config fallback; the lookup race when choosing a city; caching |
+| `location.test.mjs` | chosen city vs automatic vs config fallback; GeoJS, then ipwho.is, then an old guess; the lookup race when choosing a city; caching |
 | `weather.test.mjs` | grouping hours under days (including 23-hour daylight-saving days), parsing, hiding stale readings |
-| `services.test.mjs` | remote data and its offline copy; the clock's formats and time zones; the weather request's units and rounded location |
+| `services.test.mjs` | remote data and its offline copy, including after the 15 s timeout; the clock's formats and time zones; the weather request's units and rounded location |
 | `forecast.test.mjs` | the Weather page: day strip and hours row, day changes landing on now, Back, now moving with the clock, only ~18 hour columns in the page |
 | `settings.test.mjs` | Settings rows and leaving the page at the edges, Back, changing values, the city search |
 | `scripts.test.mjs` | the Chromecast feed parser (with Google's double escaping) and merging photo lists (tags, dates, exclusions) |
+| `rate-limit.test.mjs` | the scripts' link checks: a rate-limited (429) photo is retried and kept, never dropped |
+| `deploy.test.mjs` | picking the TV from `sdb devices`, the app id, renaming the package to `GlorduTV.wgt` |
+| `tizen.test.mjs` | the TV's remote key codes (including the on-screen keyboard's Done and Cancel), key registration, the screensaver being set again on return |
+| `data-files.test.mjs` | the published `images.json` and `config.json`: links, no repeats, known sources, valid dates, no excluded photos, the fields the app reads |
 
 App files are browser scripts, so `test/helpers/app.mjs` runs them in a
 sandbox with a fake DOM, storage and network. Looks and TV performance stay

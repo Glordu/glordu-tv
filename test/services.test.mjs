@@ -42,6 +42,41 @@ test('an HTTP error counts as a failure and falls back to the saved copy', async
   assert.equal(win.GTV.data.log['https://example.test/a.json'].source, 'cache');
 });
 
+// A server that never answers: the request only ends when aborted.
+const hang = (url, options) =>
+  new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted'))));
+
+test('a request with no answer after 15 seconds gives up and uses the saved copy', async () => {
+  let online = true;
+  const win = loadApp(['js/settings.js', 'js/data.js'], {
+    fetch: (url, options) => (online ? response({ version: 1 }) : hang(url, options)),
+  }, { fakeTimers: true });
+  await win.GTV.data.fetchJson('https://example.test/a.json');
+  online = false;
+  let body = null;
+  win.GTV.data.fetchJson('https://example.test/a.json').then((b) => (body = b));
+  win.tick(14 * 1000);
+  await settle();
+  assert.equal(body, null, 'still waiting at 14 s');
+  win.tick(1000);
+  await settle();
+  assert.equal(body.version, 1);
+  assert.match(win.GTV.data.log['https://example.test/a.json'].error, /aborted/);
+});
+
+test('an answer in time cancels the timeout', async () => {
+  let aborted = false;
+  const win = loadApp(['js/settings.js', 'js/data.js'], {
+    fetch: (url, options) => {
+      options.signal.addEventListener('abort', () => (aborted = true));
+      return response({ ok: 1 });
+    },
+  }, { fakeTimers: true });
+  await win.GTV.data.request('https://example.test/a.json');
+  win.tick(60 * 1000);
+  assert.equal(aborted, false);
+});
+
 test('with no network and nothing saved, the app starts on its built-in config', async () => {
   const win = dataApp(() => Promise.reject(new Error('offline')));
   const config = await win.GTV.data.loadConfig();
