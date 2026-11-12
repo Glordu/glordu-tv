@@ -7,7 +7,7 @@
 //   strip   the week of the selected day
 //
 // The page has two rows to move between: the day strip (where it starts)
-// and the hours row. ◀ ▶ move a day in the strip, keeping the time of day,
+// and the hours row. ◀ ▶ move a day in the strip (at the current time of day),
 // or an hour in the hours row, running on into the next or previous day.
 // ▲ from the strip goes to the hours row; ▲ from the hours row and ▼ from
 // the strip leave the page. Back returns to now, on the strip.
@@ -330,17 +330,20 @@
 
   // ---- Keys ---------------------------------------------------------------------
 
-  // Change day, keeping the time of day; today goes back to the current hour.
+  // Change day, selecting that day's hour at the current time of day (today:
+  // now itself), whatever hour was picked in the hours row before. The
+  // selected hour becomes the first one in the row, so the hours shown are
+  // the ones from it onwards.
   Forecast.prototype.moveDay = function (step) {
-    const entry = this.hours[this.hour];
-    const target = entry.day + step;
+    const target = this.hours[this.hour].day + step;
     if (target < 0 || target >= this.data.daily.length || this.dayStart[target] == null) return;
     if (target === this.today) {
       this.hour = this.now;
     } else {
       const count = this.data.daily[target].hours.length;
-      this.hour = this.dayStart[target] + Math.min(entry.inDay, count - 1);
+      this.hour = this.dayStart[target] + Math.min(this.hours[this.now].inDay, count - 1);
     }
+    this.windowStart = this.hour;
     this.render();
   };
 
