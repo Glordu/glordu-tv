@@ -17,6 +17,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FEED = 'https://clients3.google.com/cast/chromecast/home';
+// Each entry in images.json says where it came from (`source`, a short tag
+// listed with its URL under `sources`) and when it was added (`added`).
+const TAG = 'chromecast-feed';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LIST = path.join(ROOT, 'docs', 'v1', 'images.json');
 const SIZE = '=w1920-h1080-c';
@@ -59,8 +62,10 @@ async function stillWorks(base) {
 
 async function main() {
   const doc = JSON.parse(fs.readFileSync(LIST, 'utf8'));
-  const archive = doc.images.filter((img) => img.source !== 'chromecast');
-  let harvested = doc.images.filter((img) => img.source === 'chromecast');
+  const now = new Date().toISOString();
+  // Entries from other sources are left exactly as they are.
+  const others = doc.images.filter((img) => img.source !== TAG);
+  let harvested = doc.images.filter((img) => img.source === TAG);
 
   const before = harvested.length;
   const alive = await Promise.all(harvested.map((img) => stillWorks(baseOf(img.url))));
@@ -77,7 +82,7 @@ async function main() {
     for (const photo of photosIn(await res.text())) {
       if (known.has(photo.base)) continue;
       known.add(photo.base);
-      harvested.push({ url: photo.base + SIZE, author: photo.author, source: 'chromecast' });
+      harvested.push({ url: photo.base + SIZE, author: photo.author, source: TAG, added: now });
       fresh++;
     }
     added += fresh;
@@ -87,16 +92,13 @@ async function main() {
   }
 
   const out = {
-    sources: {
-      archive: 'https://github.com/dconnolly/chromecast-backgrounds',
-      chromecast: FEED,
-    },
-    generated: new Date().toISOString(),
-    images: archive.map((img) => Object.assign({}, img, { source: 'archive' })).concat(harvested),
+    sources: Object.assign({}, doc.sources, { [TAG]: FEED }),
+    generated: now,
+    images: others.concat(harvested),
   };
   fs.writeFileSync(LIST, JSON.stringify(out, null, 1) + '\n');
   console.log(
-    added + ' new from the feed, ' + dropped + ' dead dropped -> ' + harvested.length + ' feed + ' + archive.length + ' archive = ' + out.images.length + ' photos'
+    added + ' new from the feed, ' + dropped + ' dead dropped -> ' + harvested.length + ' from the feed + ' + others.length + ' others = ' + out.images.length + ' photos'
   );
 }
 

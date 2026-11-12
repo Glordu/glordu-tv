@@ -12,6 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 const UPSTREAM = 'https://raw.githubusercontent.com/dconnolly/chromecast-backgrounds/master/backgrounds.json';
 const SOURCE = 'https://github.com/dconnolly/chromecast-backgrounds';
+// Each entry in images.json says where it came from (`source`, a short tag
+// listed with its URL under `sources`) and when it was added (`added`).
+const TAG = 'dconnolly-archive';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'docs', 'v1', 'images.json');
 const CONCURRENCY = 8;
@@ -60,25 +63,28 @@ async function main() {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
+  // Photos from other sources (e.g. harvest-chromecast.mjs) are kept as they
+  // are; archive photos already listed keep the date they were first added.
+  const now = new Date().toISOString();
+  const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : { sources: {}, images: [] };
+  const others = previous.images.filter((img) => img.source !== TAG);
+  const addedBefore = {};
+  previous.images.forEach((img) => {
+    if (img.source === TAG && img.added) addedBefore[img.url] = img.added;
+  });
+
   const images = upstream
     .filter((_, i) => alive[i])
-    .map(({ url, author }) => ({ url, author: author || null, source: 'archive' }));
-
-  // Photos added by harvest-chromecast.mjs are kept as they are; that script
-  // checks and refreshes them itself.
-  let harvested = [];
-  if (fs.existsSync(OUT)) {
-    harvested = JSON.parse(fs.readFileSync(OUT, 'utf8')).images.filter((img) => img.source === 'chromecast');
-  }
+    .map(({ url, author }) => ({ url, author: author || null, source: TAG, added: addedBefore[url] || now }));
 
   const doc = {
-    sources: { archive: SOURCE, chromecast: 'https://clients3.google.com/cast/chromecast/home' },
-    generated: new Date().toISOString(),
-    images: images.concat(harvested),
+    sources: Object.assign({}, previous.sources, { [TAG]: SOURCE }),
+    generated: now,
+    images: images.concat(others),
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(doc, null, 1) + '\n');
-  console.log(`${images.length} of ${upstream.length} archive images alive, plus ${harvested.length} from the Chromecast feed -> ${path.relative(ROOT, OUT)}`);
+  console.log(`${images.length} of ${upstream.length} archive images alive, plus ${others.length} from other sources -> ${path.relative(ROOT, OUT)}`);
   if (rateLimited) {
     console.log(`${rateLimited} were rate-limited and kept unchecked; re-run later to verify them.`);
   }

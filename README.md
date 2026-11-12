@@ -119,19 +119,20 @@ minute later.
 
 ## Photos
 
-`docs/v1/images.json` lists photos from two sources, marked by each entry's
-`source`:
+`docs/v1/images.json` lists photos from two sources. Each entry has its `url`,
+the photographer (`author`), a short `source` tag, and when it was `added` to
+the list (ISO timestamp); the top-level `sources` maps each tag to its URL.
 
-- **`archive`**: the 2019 [Chromecast backgrounds archive](https://github.com/dconnolly/chromecast-backgrounds).
+- **`dconnolly-archive`**: the 2019 [Chromecast backgrounds archive](https://github.com/dconnolly/chromecast-backgrounds).
   Its links are dying: in November 2026, 403 of the 702 still worked.
-- **`chromecast`**: Google's current Chromecast backdrop feed
+- **`chromecast-feed`**: Google's current Chromecast backdrop feed
   (`clients3.google.com/cast/chromecast/home`), which returns ~49 random
   photos per load from a pool of about 400. 405 harvested in November 2026.
   Listed at 1920×1080; the same links serve the 4K originals with `=s0`.
 
 The list links to Google's servers rather than hosting the photos, which
-belong to their photographers. Each entry keeps the photographer's name
-(`author`) for possible later use; the app doesn't display it.
+belong to their photographers. The app only reads `url`; the other fields
+are for us (the author isn't displayed).
 
 ```bash
 npm run harvest  # add new photos from the Chromecast feed, drop dead ones
