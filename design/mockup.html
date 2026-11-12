@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glordu TV – page stack mockup</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #fff; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
+  /* A 1920×1080 "TV" scaled to fit the window, with the controls legend below it. */
+  #stage { position: absolute; left: 50%; top: 0; width: 1920px; height: 1080px; transform-origin: top center; }
+  #tv { position: absolute; inset: 0; overflow: hidden; background: #000; border-radius: 6px; box-shadow: 0 0 0 2px #333; }
+  #legend { position: absolute; left: 0; right: 0; top: 1100px; font-size: 26px; color: #aaa; text-align: center; line-height: 1.6; }
+  #legend b { color: #fff; font-weight: 500; }
+  #legend .on { color: #7fc8ff; }
+
+  /* Page stack */
+  #pages { position: absolute; inset: 0; transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.3, 1); }
+  .page { position: absolute; left: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  #pages.bounce-up { animation: bounceUp 0.35s ease-out; }
+  #pages.bounce-down { animation: bounceDown 0.35s ease-out; }
+  @keyframes bounceUp { 40% { margin-top: 70px; } 100% { margin-top: 0; } }
+  @keyframes bounceDown { 40% { margin-top: -70px; } 100% { margin-top: 0; } }
+
+  #dots { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.4s; z-index: 5; }
+  #dots.show { opacity: 1; }
+  #dots div { width: 14px; height: 14px; margin: 14px 0; border-radius: 50%; background: rgba(255,255,255,0.35); transition: all 0.3s; }
+  #dots div.on { background: #fff; height: 34px; border-radius: 7px; }
+
+  #toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 18px 30px; border-radius: 12px; background: rgba(20,20,20,0.92); font-size: 28px; opacity: 0; transition: opacity 0.3s; z-index: 6; }
+  #toast.show { opacity: 1; }
+  #exited { position: absolute; inset: 0; background: #000; display: none; align-items: center; justify-content: center; font-size: 34px; color: #888; z-index: 7; }
+
+  /* Slideshow */
+  .photo { position: absolute; inset: 0; background-size: cover; background-position: center; }
+  .corner { position: absolute; right: 64px; bottom: 48px; font-size: 92px; line-height: 1; white-space: nowrap; text-shadow: 0 0 2px rgba(0,0,0,.55), 0 1px 12px rgba(0,0,0,.25); }
+  .corner .t { font-size: 42px; vertical-align: 9.9px; }
+  .corner svg { width: 50px; height: 50px; margin: 0 36px 0 10px; vertical-align: baseline; }
+
+  /* Shared weather bits */
+  .wx { background: radial-gradient(ellipse at top left, #1d2b44, #0a0d14 70%); }
+  .wx h1 { margin: 0; font-size: 52px; font-weight: 400; }
+  .muted { opacity: 0.6; }
+  .icon svg { width: 100%; height: 100%; }
+  .layout { position: absolute; inset: 0; padding: 70px 100px; box-sizing: border-box; display: none; }
+  .layout.on { display: block; }
+
+  /* Layout A: day strip + detail */
+  .a-top { display: flex; align-items: center; margin-top: 30px; }
+  .a-top .icon { width: 190px; height: 190px; margin-right: 40px; }
+  .a-day { font-size: 40px; }
+  .a-temps { font-size: 110px; font-weight: 300; line-height: 1.05; }
+  .a-temps span { font-size: 64px; opacity: 0.55; margin-left: 20px; }
+  .a-facts { margin-left: auto; text-align: right; font-size: 30px; line-height: 1.7; }
+  .chart { position: relative; height: 230px; margin: 34px 0 30px; }
+  .chart svg { width: 100%; height: 100%; overflow: visible; }
+  .strip { display: flex; margin: 0 -8px; }
+  .strip .d { flex: 1; margin: 0 8px; padding: 18px 0; border-radius: 16px; text-align: center; background: rgba(255,255,255,0.05); border: 3px solid transparent; transition: all 0.2s; }
+  .strip .d.sel { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.85); }
+  .strip .d .icon { width: 64px; height: 64px; margin: 8px auto; }
+  .strip .n { font-size: 26px; } .strip .r { font-size: 26px; } .strip .r span { opacity: 0.55; margin-left: 8px; }
+
+  /* Layout B: expanding cards */
+  .b-row { display: flex; margin-top: 60px; height: 760px; }
+  .b-card { flex: 1; margin: 0 8px; border-radius: 18px; padding: 26px 18px; background: rgba(255,255,255,0.06); border: 3px solid transparent; overflow: hidden; transition: flex 0.35s ease, background 0.2s; text-align: center; position: relative; }
+  .b-card.sel { flex: 4.2; background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.8); text-align: left; }
+  .b-small .icon { width: 90px; height: 90px; margin: 20px auto; }
+  .b-big > .icon { width: 150px; height: 150px; margin: 10px 30px 0 0; float: left; }
+  .b-small .n { font-size: 30px; } .b-small .hi { font-size: 44px; } .b-small .lo { font-size: 32px; opacity: 0.55; }
+  .b-card.sel .b-small { display: none; } .b-big { display: none; } .b-card.sel .b-big { display: block; }
+  .b-big .n { font-size: 40px; } .b-big .hi { font-size: 96px; font-weight: 300; } .b-big .lo { font-size: 60px; opacity: 0.55; margin-left: 16px; }
+  .b-hours { clear: both; display: flex; margin-top: 50px; }
+  .b-hours div { flex: 1; text-align: center; font-size: 26px; }
+  .b-hours .icon { width: 54px; height: 54px; margin: 10px auto; }
+  .b-hours .tt { font-size: 30px; }
+  .b-facts { display: flex; margin-top: 50px; font-size: 28px; }
+  .b-facts div { flex: 1; } .b-facts span { display: block; font-size: 22px; opacity: 0.55; margin-bottom: 6px; }
+
+  /* Layout C: one day full screen */
+  .c-track { position: absolute; top: 0; bottom: 0; left: 0; display: flex; transition: transform 0.45s cubic-bezier(0.22, 0.8, 0.3, 1); }
+  .c-day { width: 1920px; height: 1080px; box-sizing: border-box; padding: 120px 220px; position: relative; }
+  .c-day .icon { position: absolute; right: 240px; top: 150px; width: 360px; height: 360px; }
+  .c-name { font-size: 48px; } .c-date { font-size: 32px; opacity: 0.55; margin-top: 6px; }
+  .c-temps { font-size: 210px; font-weight: 200; line-height: 1; margin-top: 50px; }
+  .c-temps span { font-size: 110px; opacity: 0.5; margin-left: 30px; }
+  .c-label { font-size: 44px; margin-top: 10px; opacity: 0.8; }
+  .c-facts { position: absolute; left: 220px; right: 220px; bottom: 120px; display: flex; font-size: 32px; }
+  .c-facts div { flex: 1; } .c-facts span { display: block; font-size: 24px; opacity: 0.5; margin-bottom: 8px; }
+  .c-peek { position: absolute; top: 50%; font-size: 30px; opacity: 0.45; transform: translateY(-50%); z-index: 2; }
+  .c-peek.l { left: 40px; } .c-peek.r { right: 40px; }
+  .c-chart { position: absolute; left: 220px; right: 220px; bottom: 250px; height: 170px; }
+
+  /* Settings + About */
+  .s-wrap { position: absolute; inset: 0; padding: 70px 100px; box-sizing: border-box; }
+  .s-row { display: flex; align-items: baseline; margin-bottom: 12px; padding: 22px 32px; border-radius: 16px; background: rgba(255,255,255,0.05); border: 3px solid transparent; font-size: 30px; }
+  .s-row.sel { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.14); }
+  .s-row .k { width: 300px; opacity: 0.7; } .s-row.sel .v::before { content: '◀  '; opacity: 0.6; } .s-row.sel .v::after { content: '  ▶'; opacity: 0.6; }
+  .s-about { margin-top: 50px; font-size: 26px; }
+  .s-about h2 { font-size: 34px; font-weight: 400; margin: 0 0 18px; }
+  .s-about div { display: flex; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); } .s-about span { width: 300px; opacity: 0.55; }
+  .hint { position: absolute; left: 100px; bottom: 50px; font-size: 24px; opacity: 0.5; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="tv">
+    <div id="pages">
+      <div class="page" id="p-slides" style="top:0"></div>
+      <div class="page wx" id="p-weather" style="top:1080px"></div>
+      <div class="page wx" id="p-settings" style="top:2160px"></div>
+    </div>
+    <div id="dots"><div></div><div></div><div></div></div>
+    <div id="toast"></div>
+    <div id="exited">App closed (mockup). Press any key to reopen.</div>
+  </div>
+  <div id="legend"></div>
+</div>
+
+<script>window.GTV = { prefs: { get() {}, onChange() {} }, location: { onChange() {}, get() { return Promise.resolve(null); } } };</script>
+<script src="../app-tizen/js/weather.js"></script>
+<script>
+(function () {
+  const W = GTV.weather;
+  const PHOTOS = ['0488a121-Lorne+Road.jpg', '2f79ac60-sky_leaves.jpg', '64d03e0a-071227-4144-PtLomaReef.jpg', '9b9d4ccf-20140105-untitled+shoot-2908_HDR_HDR.jpg', 'dae7c7a7-The+Rocks+of+Iceland.jpg'];
+
+  // ---- Mock forecast: 4 weeks back, 16 days ahead -------------------------
+  const CODES = [61, 63, 3, 61, 80, 3, 3, 2, 0, 1, 61, 95, 2, 0, 0, 3];
+  const NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let off = -28; off < 16; off++) {
+    const d = new Date(today.getTime() + off * 864e5);
+    const code = CODES[(off + 280) % CODES.length];
+    const max = Math.round(19 + 4 * Math.sin(off / 3)), min = max - 6 - (off % 3 === 0 ? 2 : 0);
+    const rainChance = code >= 61 ? 60 + ((off * 7) % 35) : code === 3 ? 15 : 5;
+    const hours = [];
+    for (let h = 0; h < 24; h++) {
+      const t = min + (max - min) * (0.5 - 0.5 * Math.cos(((h - 4) / 24) * 2 * Math.PI));
+      hours.push({ h: h, t: t, rain: Math.max(0, Math.min(100, rainChance + 25 * Math.sin((h + off) / 3))), code: h < 7 || h > 19 ? (code === 0 ? 0 : code) : code });
+    }
+    days.push({ off: off, date: d, code: code, max: max, min: min, rainChance: rainChance, rain: code >= 61 ? ((off * 13) % 9) + 0.4 : 0, wind: 8 + ((off * 5) % 17), sunrise: '7:' + (40 + (off % 10 + 10) % 10), sunset: '17:' + (30 - (off % 10 + 10) % 10), hours: hours });
+  }
+  const TODAY = 28;
+  const dayName = (d) => d.off === 0 ? 'Today' : d.off === 1 ? 'Tomorrow' : d.off === -1 ? 'Yesterday' : NAMES[d.date.getDay()];
+  const dateText = (d) => d.date.getDate() + ' ' + MONTHS[d.date.getMonth()];
+  const icon = (code, day) => '<div class="icon">' + W.icon(code, day !== false) + '</div>';
+  const deg = (v) => Math.round(v) + '°';
+  const rainText = (d) => d.off < 0 ? (d.rain ? d.rain.toFixed(1) + ' mm fell' : 'No rain') : d.rainChance + '% chance';
+
+  // Hourly temperature line with rain bars, as an SVG chart.
+  function chart(d, height, labels) {
+    const w = 1720, h = height, pad = 30;
+    const ts = d.hours.map((x) => x.t), lo = Math.min.apply(null, ts) - 1, hi = Math.max.apply(null, ts) + 1;
+    const x = (i) => (i / 23) * w, y = (t) => pad + (1 - (t - lo) / (hi - lo)) * (h - pad * 2 - 30);
+    let path = '', bars = '', marks = '';
+    d.hours.forEach((p, i) => {
+      path += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.t).toFixed(1);
+      const bh = (p.rain / 100) * 60;
+      bars += '<rect x="' + (x(i) - 14) + '" y="' + (h - bh) + '" width="28" height="' + bh + '" rx="4" fill="rgba(120,180,255,0.35)"/>';
+      if (labels && i % 3 === 0) marks += '<text x="' + x(i) + '" y="' + (y(p.t) - 18) + '" fill="#fff" font-size="26" text-anchor="middle">' + deg(p.t) + '</text><text x="' + x(i) + '" y="' + (h + 34) + '" fill="rgba(255,255,255,0.5)" font-size="22" text-anchor="middle">' + p.h + ':00</text>';
+    });
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' + bars + '<path d="' + path + '" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>' + marks + '</svg>';
+  }
+
+  // ---- State -------------------------------------------------------------
+  const state = { page: 0, photo: 0, day: TODAY, row: 0, layout: 'A', backMode: 'home', exitArmed: false };
+  const pagesEl = document.getElementById('pages');
+  const dots = document.getElementById('dots');
+  const toastEl = document.getElementById('toast');
+  let dotsTimer, toastTimer, exitTimer;
+
+  function toast(text) {
+    toastEl.textContent = text; toastEl.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2000);
+  }
+
+  // ---- Slideshow page ------------------------------------------------------
+  function renderSlides() {
+    const t = days[TODAY].hours[new Date().getHours()];
+    const now = new Date();
+    document.getElementById('p-slides').innerHTML =
+      '<div class="photo" style="background-image:url(\'../backup/' + PHOTOS[state.photo] + '\')"></div>' +
+      '<div class="corner"><span class="t">' + deg(t.t) + '</span>' + W.icon(days[TODAY].code, true).replace(/width="1em" height="1em"/, '') + '<span>' + now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0') + '</span></div>';
+  }
+
+  // ---- Weather page (three layouts) -----------------------------------------
+  function weekOf(i) { return Math.floor((i - TODAY) / 7); }
+
+  function layoutA() {
+    const d = days[state.day], start = TODAY + weekOf(state.day) * 7;
+    let strip = '';
+    for (let i = start; i < start + 7; i++) {
+      const s = days[i];
+      strip += s ? '<div class="d' + (i === state.day ? ' sel' : '') + (s.off < 0 ? ' muted' : '') + '"><div class="n">' + dayName(s) + '</div>' + icon(s.code) + '<div class="r">' + deg(s.max) + '<span>' + deg(s.min) + '</span></div></div>' : '<div class="d" style="opacity:.25"><div class="n">—</div></div>';
+    }
+    return '<h1>Weather <span class="muted" style="font-size:32px">· Barcelona</span></h1>' +
+      '<div class="a-top">' + icon(d.code) + '<div><div class="a-day">' + dayName(d) + ' · ' + dateText(d) + '</div><div class="a-temps">' + deg(d.max) + '<span>' + deg(d.min) + '</span></div><div style="font-size:32px" class="muted">' + W.label(d.code) + '</div></div>' +
+      '<div class="a-facts">Rain ' + rainText(d) + '<br>Wind ' + d.wind + ' km/h<br>Sunrise ' + d.sunrise + ' · Sunset ' + d.sunset + '</div></div>' +
+      '<div class="chart">' + chart(d, 230, true) + '</div><div class="strip">' + strip + '</div>';
+  }
+
+  function layoutB() {
+    const start = TODAY + weekOf(state.day) * 7;
+    let cards = '';
+    for (let i = start; i < start + 7; i++) {
+      const s = days[i];
+      if (!s) { cards += '<div class="b-card" style="opacity:.2"></div>'; continue; }
+      const hours = [6, 9, 12, 15, 18, 21].map((h) => '<div><div class="muted">' + h + ':00</div>' + icon(s.hours[h].code, h > 6 && h < 20) + '<div class="tt">' + deg(s.hours[h].t) + '</div></div>').join('');
+      cards += '<div class="b-card' + (i === state.day ? ' sel' : '') + (s.off < 0 ? ' muted' : '') + '">' +
+        '<div class="b-small"><div class="n">' + dayName(s) + '</div><div class="muted" style="font-size:22px">' + dateText(s) + '</div>' + icon(s.code) + '<div class="hi">' + deg(s.max) + '</div><div class="lo">' + deg(s.min) + '</div></div>' +
+        '<div class="b-big">' + icon(s.code) + '<div class="n">' + dayName(s) + ' · ' + dateText(s) + '</div><div><span class="hi">' + deg(s.max) + '</span><span class="lo">' + deg(s.min) + '</span></div><div class="muted" style="font-size:30px">' + W.label(s.code) + '</div>' +
+        '<div class="b-hours">' + hours + '</div>' +
+        '<div class="b-facts"><div><span>Rain</span>' + rainText(s) + '</div><div><span>Wind</span>' + s.wind + ' km/h</div><div><span>Sun</span>' + s.sunrise + ' – ' + s.sunset + '</div></div></div></div>';
+    }
+    return '<h1>Weather <span class="muted" style="font-size:32px">· Barcelona</span></h1><div class="b-row">' + cards + '</div>';
+  }
+
+  function layoutC() {
+    let track = '';
+    days.forEach((d) => {
+      track += '<div class="c-day"><div class="c-name">' + dayName(d) + '</div><div class="c-date">' + dateText(d) + ' · Barcelona</div>' +
+        '<div class="c-temps">' + deg(d.max) + '<span>' + deg(d.min) + '</span></div><div class="c-label">' + W.label(d.code) + '</div>' + icon(d.code) +
+        '<div class="c-chart">' + chart(d, 170, true) + '</div>' +
+        '<div class="c-facts"><div><span>Rain</span>' + rainText(d) + '</div><div><span>Wind</span>' + d.wind + ' km/h</div><div><span>Sunrise</span>' + d.sunrise + '</div><div><span>Sunset</span>' + d.sunset + '</div></div></div>';
+    });
+    const prev = days[state.day - 1], next = days[state.day + 1];
+    return '<div class="c-track" style="width:' + days.length * 1920 + 'px;transform:translateX(' + -state.day * 1920 + 'px)">' + track + '</div>' +
+      (prev ? '<div class="c-peek l">◀ ' + dayName(prev) + '</div>' : '') + (next ? '<div class="c-peek r">' + dayName(next) + ' ▶</div>' : '');
+  }
+
+  function renderWeather() {
+    const el = document.getElementById('p-weather');
+    if (state.layout === 'C' && el.querySelector('.c-track')) {
+      // Slide the existing track so the day change animates.
+      el.querySelector('.c-track').style.transform = 'translateX(' + -state.day * 1920 + 'px)';
+      const prev = days[state.day - 1], next = days[state.day + 1];
+      el.querySelectorAll('.c-peek').forEach((p) => p.remove());
+      if (prev) el.insertAdjacentHTML('beforeend', '<div class="c-peek l">◀ ' + dayName(prev) + '</div>');
+      if (next) el.insertAdjacentHTML('beforeend', '<div class="c-peek r">' + dayName(next) + ' ▶</div>');
+      return;
+    }
+    el.innerHTML = '<div class="layout on">' + (state.layout === 'A' ? layoutA() : state.layout === 'B' ? layoutB() : layoutC()) + '</div>' +
+      (state.layout === 'C' ? '' : '<div class="hint">◀ ▶ day · ▲▼ other pages · Back to today</div>');
+    if (state.layout === 'C') el.firstChild.style.padding = '0';
+  }
+
+  // ---- Settings + About ----------------------------------------------------
+  const ROWS = [['Location', 'Automatic · Barcelona, Spain'], ['Time zone', 'TV setting (Europe/Madrid)'], ['Temperature', 'Celsius (°C)'], ['Clock', '24-hour']];
+  function renderSettings() {
+    document.getElementById('p-settings').innerHTML = '<div class="s-wrap"><h1 style="margin-bottom:40px">Settings</h1>' +
+      ROWS.map((r, i) => '<div class="s-row' + (i === state.row ? ' sel' : '') + '"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + '</div></div>').join('') +
+      '<div class="s-about"><h2>About</h2><div><span>Version</span>0.2.0</div><div><span>Location</span>detected automatically</div><div><span>Resolution</span>1920×1080 (TV panel 4K)</div><div><span>Data</span>live, fetched 2 min ago</div></div>' +
+      '<div class="hint">▲▼ setting (and other pages at the top) · ◀ ▶ change · Back to first setting</div></div>';
+  }
+
+  // ---- Navigation ----------------------------------------------------------
+  function showDots() {
+    [...dots.children].forEach((d, i) => d.classList.toggle('on', i === state.page));
+    dots.classList.add('show'); clearTimeout(dotsTimer); dotsTimer = setTimeout(() => dots.classList.remove('show'), 1600);
+  }
+  function goPage(p) {
+    if (p < 0 || p > 2) {
+      pagesEl.classList.remove('bounce-up', 'bounce-down'); void pagesEl.offsetWidth;
+      pagesEl.classList.add(p < 0 ? 'bounce-up' : 'bounce-down'); showDots(); return;
+    }
+    state.page = p; pagesEl.style.transform = 'translateY(' + -p * 1080 + 'px)'; showDots();
+  }
+  function goHomeOrExit(reset) {
+    if (reset) return;
+    if (state.backMode === 'home' && state.page !== 0) { goPage(0); return; }
+    if (state.exitArmed) { document.getElementById('exited').style.display = 'flex'; return; }
+    state.exitArmed = true; toast('Press Back again to exit');
+    clearTimeout(exitTimer); exitTimer = setTimeout(() => { state.exitArmed = false; }, 2000);
+  }
+
+  function onKey(e) {
+    const exited = document.getElementById('exited');
+    if (exited.style.display === 'flex') { exited.style.display = 'none'; state.exitArmed = false; return; }
+    const k = e.key;
+    if (k === '1' || k === '2' || k === '3') { state.layout = 'ABC'[+k - 1]; renderWeather(); renderLegend(); return; }
+    if (k === 'b' || k === 'B') { state.backMode = state.backMode === 'home' ? 'exit' : 'home'; renderLegend(); return; }
+    const back = k === 'Escape' || k === 'Backspace';
+    if (!back) { state.exitArmed = false; }
+    e.preventDefault();
+
+    if (state.page === 0) {
+      if (k === 'ArrowRight') { state.photo = (state.photo + 1) % PHOTOS.length; renderSlides(); }
+      else if (k === 'ArrowLeft') { state.photo = (state.photo + PHOTOS.length - 1) % PHOTOS.length; renderSlides(); }
+      else if (k === 'ArrowDown') goPage(1);
+      else if (k === 'ArrowUp') goPage(-1);
+      else if (back) goHomeOrExit(false);
+    } else if (state.page === 1) {
+      if (k === 'ArrowRight' && state.day < days.length - 1) { state.day++; renderWeather(); }
+      else if (k === 'ArrowLeft' && state.day > 0) { state.day--; renderWeather(); }
+      else if (k === 'ArrowDown') goPage(2);
+      else if (k === 'ArrowUp') goPage(0);
+      else if (back) { const reset = state.day !== TODAY; state.day = TODAY; renderWeather(); goHomeOrExit(reset); }
+    } else {
+      if (k === 'ArrowDown') { if (state.row < ROWS.length - 1) { state.row++; renderSettings(); } else goPage(3); }
+      else if (k === 'ArrowUp') { if (state.row > 0) { state.row--; renderSettings(); } else goPage(1); }
+      else if (k === 'ArrowLeft' || k === 'ArrowRight') toast('Would change ' + ROWS[state.row][0]);
+      else if (back) { const reset = state.row !== 0; state.row = 0; renderSettings(); goHomeOrExit(reset); }
+    }
+  }
+
+  function renderLegend() {
+    const opt = (key, label, on) => '<span class="' + (on ? 'on' : '') + '">' + key + ' ' + label + '</span>';
+    document.getElementById('legend').innerHTML =
+      '<b>▲ ▼</b> pages &nbsp; <b>◀ ▶</b> photo / day / value &nbsp; <b>Esc</b> Back<br>' +
+      'Weather layout: ' + opt('1', 'strip + detail', state.layout === 'A') + ' · ' + opt('2', 'expanding cards', state.layout === 'B') + ' · ' + opt('3', 'one day full screen', state.layout === 'C') +
+      ' &nbsp;|&nbsp; <b>B</b> Back goes: ' + opt('', state.backMode === 'home' ? 'to Slideshow, then exit' : 'straight to exit prompt', true);
+  }
+
+  function fit() {
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1230);
+    const stage = document.getElementById('stage');
+    stage.style.transform = 'translateX(-50%) scale(' + s + ')';
+  }
+
+  renderSlides(); renderWeather(); renderSettings(); renderLegend(); fit();
+  window.addEventListener('resize', fit);
+  document.addEventListener('keydown', onKey);
+})();
+</script>
+</body>
+</html>
