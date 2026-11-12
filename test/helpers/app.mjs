@@ -1,9 +1,21 @@
 // Loads app files (classic browser scripts) into a sandbox with just enough
 // of a browser faked to run their logic: a minimal DOM, localStorage,
-// timers. Tests then drive the code through window.GTV.
+// timers, key events and images. Tests then drive the code through
+// window.GTV.
 //
 //   const win = loadApp(['js/prefs.js', 'js/location.js'], { GTV: { ... } });
 //   win.GTV.location.get()
+//
+// Options (third argument):
+//   fakeTimers  setTimeout/requestAnimationFrame only run when the test calls
+//               win.tick(ms), so minutes-long timers can be tested instantly
+//   images      function(url) -> { width } for a photo that loads, or null for
+//               one that fails; used by `new Image()` in the app
+//
+// Helpers on the returned window:
+//   win.press(key, target)  dispatches a keydown, e.g. 'ArrowDown', 'Escape'
+//   win.tick(ms)            advances fake timers
+//   win.storage             the localStorage contents (a Map)
 //
 // Values from the sandbox come from another JavaScript realm; compare them
 // with plain() (a JSON round trip) rather than deepStrictEqual directly.
@@ -24,6 +36,7 @@ function fakeElement(tag) {
     textContent: '',
     innerHTML: '',
     title: '',
+    value: '',
     offsetWidth: 0,
     classList: {
       add: (...names) => names.forEach((n) => classes.add(n)),
@@ -54,26 +67,88 @@ function fakeElement(tag) {
     querySelector: () => null,
     querySelectorAll: () => [],
     setAttribute() {},
-    focus() {},
-    blur() {},
+    focus() {
+      fakeElement.active = el;
+    },
+    blur() {
+      if (fakeElement.active === el) fakeElement.active = null;
+    },
     scrollIntoView() {},
     getBoundingClientRect: () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }),
   };
   return el;
 }
 
-export function loadApp(files, globals) {
+// A timer queue that only runs when told to.
+function fakeTimerQueue() {
+  let now = 0;
+  let nextId = 1;
+  const tasks = [];
+  const set = (fn, ms) => {
+    const id = nextId++;
+    tasks.push({ id, at: now + (ms || 0), fn });
+    return id;
+  };
+  const clear = (id) => {
+    const i = tasks.findIndex((t) => t.id === id);
+    if (i > -1) tasks.splice(i, 1);
+  };
+  const tick = (ms) => {
+    const end = now + ms;
+    for (;;) {
+      tasks.sort((a, b) => a.at - b.at || a.id - b.id);
+      const task = tasks[0];
+      if (!task || task.at > end) break;
+      tasks.shift();
+      now = task.at;
+      task.fn(now);
+    }
+    now = end;
+  };
+  return { set, clear, tick };
+}
+
+export function loadApp(files, globals, options) {
+  options = options || {};
   const storage = new Map();
+  const listeners = {};
+  const byId = {};
+  const timers = options.fakeTimers ? fakeTimerQueue() : null;
+  const setT = timers ? timers.set : setTimeout;
+  const clearT = timers ? timers.clear : clearTimeout;
+
+  class FakeImage {
+    constructor() {
+      this.naturalWidth = 0;
+      this.onload = null;
+      this.onerror = null;
+    }
+    set src(url) {
+      this._src = url;
+      const result = options.images ? options.images(url) : { width: 1920 };
+      setT(() => {
+        if (result) {
+          this.naturalWidth = result.width;
+          if (this.onload) this.onload();
+        } else if (this.onerror) this.onerror();
+      }, 0);
+    }
+    get src() {
+      return this._src;
+    }
+  }
+
   const sandbox = {
     console,
-    setTimeout,
-    clearTimeout,
+    setTimeout: setT,
+    clearTimeout: clearT,
     // Recurring timers never fire in tests; they'd keep Node running.
     setInterval: () => 0,
     clearInterval: () => {},
-    requestAnimationFrame: (fn) => setTimeout(() => fn(Date.now()), 0),
+    requestAnimationFrame: (fn) => setT(() => fn(Date.now()), 16),
     performance,
     URL,
+    Image: FakeImage,
     fetch: () => Promise.reject(new Error('No network in tests')),
     localStorage: {
       getItem: (k) => (storage.has(k) ? storage.get(k) : null),
@@ -82,8 +157,11 @@ export function loadApp(files, globals) {
     },
     document: {
       createElement: fakeElement,
-      getElementById: () => fakeElement('div'),
-      addEventListener() {},
+      getElementById: (id) => (byId[id] = byId[id] || fakeElement('div')),
+      addEventListener: (type, fn) => (listeners[type] = listeners[type] || []).push(fn),
+      get activeElement() {
+        return fakeElement.active || null;
+      },
       hidden: false,
     },
     location: { search: '', href: 'http://localhost/' },
@@ -97,7 +175,26 @@ export function loadApp(files, globals) {
   for (const file of files) {
     vm.runInContext(fs.readFileSync(path.join(APP, file), 'utf8'), sandbox, { filename: file });
   }
+
   sandbox.storage = storage;
+  sandbox.tick = (ms) => {
+    if (!timers) throw new Error('loadApp(..., { fakeTimers: true }) to use tick()');
+    timers.tick(ms);
+  };
+  sandbox.press = (key, target) => {
+    let prevented = false;
+    const event = {
+      key: key,
+      keyCode: 0,
+      target: target || { tagName: 'BODY' },
+      ctrlKey: false,
+      altKey: false,
+      metaKey: false,
+      preventDefault: () => (prevented = true),
+    };
+    (listeners.keydown || []).forEach((fn) => fn(event));
+    return prevented;
+  };
   return sandbox;
 }
 
