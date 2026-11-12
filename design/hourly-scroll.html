@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weather with scrolling hours – mockup</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #fff; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; }
+  /* A 1920×1080 "TV" scaled to fit the window, with the legend below it. */
+  #stage { position: absolute; left: 50%; top: 0; width: 1920px; height: 1080px; transform-origin: top center; }
+  #tv { position: absolute; inset: 0; overflow: hidden; border-radius: 6px; box-shadow: 0 0 0 2px #333; background: #0a0d14 url(../app-tizen/img/page-bg.png) 0 0 / 100% 100% no-repeat; padding: 56px 100px; box-sizing: border-box; }
+  #legend { position: absolute; left: 0; right: 0; top: 1100px; font-size: 26px; color: #aaa; text-align: center; line-height: 1.6; }
+  #legend b { color: #fff; font-weight: 500; }
+  #legend .on { color: #7fc8ff; }
+  .muted { opacity: 0.6; }
+
+  /* Header: title on the left, clock on the right */
+  .head { display: flex; justify-content: space-between; align-items: baseline; }
+  .head h1 { display: inline; margin: 0; font-size: 52px; font-weight: 400; }
+  .head .place { font-size: 32px; opacity: 0.6; }
+  .clock { font-size: 64px; font-weight: 300; letter-spacing: 0.02em; }
+
+  /* Hero: current weather left, selected day right */
+  .hero { display: flex; align-items: center; margin-top: 18px; height: 190px; }
+  .hero .big svg { width: 170px; height: 170px; margin-right: 36px; }
+  .now-temp { font-size: 120px; font-weight: 300; line-height: 1; }
+  .now-label { font-size: 32px; margin-top: 6px; }
+  .now-feels { font-size: 26px; opacity: 0.6; margin-top: 4px; }
+  .dayinfo { margin-left: auto; text-align: right; }
+  .dayinfo .title { font-size: 36px; }
+  .dayinfo .range { font-size: 44px; font-weight: 300; margin: 2px 0 6px; }
+  .dayinfo .range span { opacity: 0.55; margin-left: 14px; }
+  .dayinfo .facts { font-size: 26px; line-height: 1.6; }
+  .dayinfo .facts span { opacity: 0.55; margin: 0 10px 0 28px; }
+
+  /* Hours row: 6 columns visible, the track slides */
+  .hours { position: relative; height: 380px; margin-top: 34px; overflow: hidden; border-radius: 16px; }
+  .track { position: absolute; top: 0; left: 0; height: 100%; transition: transform 0.3s cubic-bezier(0.22, 0.8, 0.3, 1); }
+  .track svg.graph { position: absolute; top: 0; left: 0; height: 100%; overflow: visible; }
+  .col { position: absolute; top: 0; width: 286px; height: 100%; box-sizing: border-box; border: 3px solid transparent; border-radius: 16px; }
+  .col.sel { background: rgba(255,255,255,0.08); }
+  .focus-hours .col.sel { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.85); }
+  .col .time { position: absolute; top: 18px; left: 0; right: 0; text-align: center; font-size: 26px; }
+  .col .time.midnight { color: #8fc4ff; }
+  .col .icon { position: absolute; top: 232px; left: 50%; width: 56px; height: 56px; margin-left: -28px; }
+  .col .icon svg { width: 100%; height: 100%; }
+  .col .rain { position: absolute; top: 310px; left: 0; right: 0; text-align: center; font-size: 26px; color: #8fc4ff; }
+  .col .rain.dim { opacity: 0.35; }
+  .col .rain svg { width: 26px; height: 26px; vertical-align: -4px; margin-right: 6px; fill: currentColor; stroke: currentColor; }
+  .divider { position: absolute; top: 10px; bottom: 10px; width: 2px; background: rgba(143,196,255,0.4); }
+  .line { fill: none; stroke: #fff; stroke-width: 4; stroke-linejoin: round; }
+  .pt { fill: #fff; }
+  .pt.now { stroke: #0a0d14; stroke-width: 4; }
+  .tlabel { fill: #fff; font-size: 30px; text-anchor: middle; }
+
+  /* Day strip */
+  .strip { display: flex; margin: 34px -8px 0; }
+  .d { flex: 1; margin: 0 8px; padding: 14px 0; border-radius: 16px; text-align: center; background: rgba(255,255,255,0.05); border: 3px solid transparent; }
+  .d.sel { background: rgba(255,255,255,0.08); }
+  .focus-days .d.sel { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.85); }
+  .d .n { font-size: 26px; } .d svg { width: 56px; height: 56px; margin: 6px 0; } .d .r { font-size: 26px; } .d .r span { opacity: 0.55; margin-left: 8px; }
+
+  #toast { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); padding: 16px 28px; border-radius: 12px; background: rgba(20,20,20,0.92); font-size: 28px; opacity: 0; transition: opacity 0.3s; }
+  #toast.show { opacity: 1; }
+  #status { font-size: 28px; opacity: 0.6; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="tv"><div id="status">Loading the forecast…</div></div>
+  <div id="legend"></div>
+</div>
+<script>window.GTV = { prefs: { get() {}, onChange() {} }, location: { onChange() {}, get() { return Promise.resolve(null); } } };</script>
+<script src="../app-tizen/js/weather.js"></script>
+<script>
+(function () {
+  const W = GTV.weather;
+  const COL = 286, VISIBLE = 6;
+  const BAND_TOP = 100, BAND = 112; // the temperature line's vertical range in the hours row
+  const UMB = '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/><path d="M12 12v6.5a1.6 1.6 0 0 1-3.2 0" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const pad = (n) => String(n).padStart(2, '0');
+  const deg = (t) => Math.round(t) + '°';
+  const icon = (code, day) => W.icon(code, day !== false).replace('width="1em" height="1em"', '');
+
+  let data, toastTimer;
+  const state = { hour: 0, focus: 'days', windowStart: 0, scale: 'day' };
+
+  function toast(t) {
+    const el = document.getElementById('toast');
+    el.textContent = t; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+  }
+
+  const dayOf = (h) => Math.floor(h / 24);
+  const dayName = (i) => (i === data.today ? 'Today' : i === data.today + 1 ? 'Tomorrow' : i === data.today - 1 ? 'Yesterday' : NAMES[data.days[i].date.getDay()]);
+  const dateText = (i) => data.days[i].date.getDate() + ' ' + MONTHS[data.days[i].date.getMonth()];
+
+  // Where a temperature sits in the hours row: scaled to the whole forecast
+  // ("week") or to each day's own lowest and highest hour ("day").
+  function yFor(i) {
+    const h = data.hours[i];
+    let lo, hi;
+    if (state.scale === 'day') {
+      const day = data.dayRange[dayOf(i)];
+      lo = day.lo - 0.5; hi = day.hi + 0.5;
+    } else {
+      lo = data.lo - 1; hi = data.hi + 1;
+    }
+    return BAND_TOP + (1 - (h.t - lo) / (hi - lo)) * BAND;
+  }
+
+  function buildTrack() {
+    const hours = data.hours;
+    const cx = (i) => i * COL + COL / 2;
+    let path = '', pts = '', labels = '', cols = '';
+    hours.forEach((h, i) => {
+      const y = yFor(i).toFixed(1);
+      // With per-day scaling the line restarts at midnight: the two days' scales differ.
+      const restart = i === 0 || (state.scale === 'day' && h.hour === 0);
+      path += (restart ? 'M' : 'L') + cx(i) + ' ' + y;
+      const isNow = i === data.nowHour;
+      pts += '<circle class="pt' + (isNow ? ' now' : '') + '" cx="' + cx(i) + '" cy="' + y + '" r="' + (isNow ? 9 : 5) + '"/>';
+      labels += '<text class="tlabel" x="' + cx(i) + '" y="' + (y - 18) + '">' + deg(h.t) + '</text>';
+      const time = h.hour === 0 ? NAMES[h.date.getDay()].slice(0, 3) + ' 00:00' : pad(h.hour) + ':00';
+      cols += '<div class="col" style="left:' + i * COL + 'px"><div class="time' + (h.hour === 0 ? ' midnight' : '') + '">' + time + '</div>' +
+        '<div class="icon">' + icon(h.code, h.isDay) + '</div>' +
+        '<div class="rain' + (h.p === 0 ? ' dim' : '') + '">' + UMB + h.p + '%</div></div>' +
+        (h.hour === 0 ? '<div class="divider" style="left:' + (i * COL - 1) + 'px"></div>' : '');
+    });
+    const width = hours.length * COL;
+    document.querySelector('.track').innerHTML = '<svg class="graph" width="' + width + '" viewBox="0 0 ' + width + ' 380"><path class="line" d="' + path + '"/>' + pts + labels + '</svg>' + cols;
+    document.querySelector('.track').style.width = width + 'px';
+  }
+
+  function build() {
+    const c = data.current;
+    document.getElementById('tv').innerHTML =
+      '<div class="head"><div><h1>Weather</h1> <span class="place">· Barcelona, Spain</span></div><div class="clock"></div></div>' +
+      '<div class="hero"><div class="big">' + icon(c.code, c.isDay) + '</div>' +
+      '<div><div class="now-temp">' + deg(c.t) + '</div><div class="now-label">' + W.label(c.code) + '</div><div class="now-feels">Feels like ' + deg(c.feels) + '</div></div>' +
+      '<div class="dayinfo"><div class="title"></div><div class="range"></div><div class="facts"></div></div></div>' +
+      '<div class="hours"><div class="track"></div></div>' +
+      '<div class="strip"></div><div id="toast"></div>';
+    buildTrack();
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  function tick() {
+    const n = new Date();
+    document.querySelector('.clock').textContent = pad(n.getHours()) + ':' + pad(n.getMinutes());
+  }
+
+  function render() {
+    const tv = document.getElementById('tv');
+    tv.classList.toggle('focus-hours', state.focus === 'hours');
+    tv.classList.toggle('focus-days', state.focus === 'days');
+    const di = dayOf(state.hour), d = data.days[di];
+    tv.querySelector('.dayinfo .title').textContent = dayName(di) + ' · ' + dateText(di);
+    tv.querySelector('.dayinfo .range').innerHTML = deg(d.max) + '<span>' + deg(d.min) + '</span>';
+    tv.querySelector('.dayinfo .facts').innerHTML =
+      '<span>Rain</span>' + (di < data.today ? d.rain.toFixed(1) + ' mm fell' : d.p + '%') +
+      '<span>Wind</span>' + Math.round(d.wind) + ' km/h' +
+      '<span>Sun</span>' + d.sunrise + '–' + d.sunset;
+
+    // Keep the selected hour inside the 6-hour window, scrolling only as needed.
+    if (state.hour < state.windowStart) state.windowStart = state.hour;
+    if (state.hour > state.windowStart + VISIBLE - 1) state.windowStart = state.hour - VISIBLE + 1;
+    state.windowStart = Math.max(0, Math.min(data.hours.length - VISIBLE, state.windowStart));
+    tv.querySelector('.track').style.transform = 'translateX(' + -state.windowStart * COL + 'px)';
+    tv.querySelectorAll('.col').forEach((c, i) => c.classList.toggle('sel', i === state.hour));
+
+    const weekStart = data.today + Math.floor((di - data.today) / 7) * 7;
+    let strip = '';
+    for (let i = weekStart; i < weekStart + 7; i++) {
+      const s = data.days[i];
+      const name = i === data.today || i === data.today + 1 ? dayName(i) : dayName(i).slice(0, 3);
+      strip += s ? '<div class="d' + (i === di ? ' sel' : '') + (i < data.today ? ' muted' : '') + '"><div class="n">' + name + '</div>' + icon(s.code) + '<div class="r">' + deg(s.max) + '<span>' + deg(s.min) + '</span></div></div>' : '<div class="d" style="opacity:.25"></div>';
+    }
+    tv.querySelector('.strip').innerHTML = strip;
+    renderLegend();
+  }
+
+  function renderLegend() {
+    document.getElementById('legend').innerHTML =
+      '<b>◀ ▶</b> day (strip) or hour (hours row) &nbsp; <b>▲ ▼</b> between the rows, then other pages &nbsp; <b>Esc</b> Back to now<br>' +
+      '<b>S</b> temperature line scaled to: <span class="' + (state.scale === 'day' ? 'on' : '') + '">each day</span> · <span class="' + (state.scale === 'week' ? 'on' : '') + '">the whole week</span>';
+  }
+
+  function onKey(e) {
+    const k = e.key;
+    if (!data) return;
+    e.preventDefault();
+    if (k === 's' || k === 'S') {
+      state.scale = state.scale === 'day' ? 'week' : 'day';
+      buildTrack();
+    } else if (state.focus === 'hours') {
+      if (k === 'ArrowRight' && state.hour < data.hours.length - 1) state.hour++;
+      else if (k === 'ArrowLeft' && state.hour > 0) state.hour--;
+      else if (k === 'ArrowDown') state.focus = 'days';
+      else if (k === 'ArrowUp') toast('▲ would slide up to the Slideshow');
+    } else {
+      // Changing day keeps the same time of day (today: the current hour).
+      const di = dayOf(state.hour), hod = state.hour % 24;
+      if (k === 'ArrowRight' && di < data.days.length - 1) state.hour = (di + 1) * 24 + (di + 1 === data.today ? data.nowHour % 24 : hod);
+      else if (k === 'ArrowLeft' && di > 0) state.hour = (di - 1) * 24 + (di - 1 === data.today ? data.nowHour % 24 : hod);
+      else if (k === 'ArrowUp') state.focus = 'hours';
+      else if (k === 'ArrowDown') toast('▼ would slide down to Settings');
+    }
+    if (k === 'Escape' || k === 'Backspace') {
+      if (state.hour !== data.nowHour || state.focus !== 'days') { state.hour = data.nowHour; state.focus = 'days'; state.windowStart = data.nowHour; }
+      else toast('Back would return to the Slideshow');
+    }
+    render();
+  }
+
+  function fit() {
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1230);
+    document.getElementById('stage').style.transform = 'translateX(-50%) scale(' + s + ')';
+  }
+
+  // Real forecast for Barcelona: yesterday through 6 days ahead, hourly.
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=41.39&longitude=2.17&timezone=auto&past_days=1&forecast_days=7' +
+    '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
+    '&hourly=temperature_2m,precipitation_probability,weather_code,is_day' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max,sunrise,sunset')
+    .then((r) => r.json())
+    .then((b) => {
+      const hb = b.hourly, db = b.daily;
+      const hours = hb.time.map((t, i) => ({ date: new Date(t), hour: new Date(t).getHours(), t: hb.temperature_2m[i], p: hb.precipitation_probability[i], code: hb.weather_code[i], isDay: hb.is_day[i] === 1 }));
+      const days = db.time.map((t, i) => ({ date: new Date(t + 'T00:00'), code: db.weather_code[i], max: db.temperature_2m_max[i], min: db.temperature_2m_min[i], p: db.precipitation_probability_max[i], rain: db.precipitation_sum[i], wind: db.wind_speed_10m_max[i], sunrise: db.sunrise[i].slice(11), sunset: db.sunset[i].slice(11) }));
+      const dayRange = days.map((_, d) => {
+        const ts = hours.slice(d * 24, d * 24 + 24).map((h) => h.t);
+        return { lo: Math.min.apply(null, ts), hi: Math.max.apply(null, ts) };
+      });
+      const temps = hours.map((h) => h.t);
+      const nowHour = 24 + new Date(b.current.time).getHours(); // day 0 is yesterday
+      data = {
+        hours: hours, days: days, dayRange: dayRange, today: 1, nowHour: nowHour,
+        lo: Math.min.apply(null, temps), hi: Math.max.apply(null, temps),
+        current: { t: b.current.temperature_2m, feels: b.current.apparent_temperature, code: b.current.weather_code, isDay: b.current.is_day === 1 },
+      };
+      state.hour = nowHour; state.windowStart = nowHour;
+      build(); render();
+    })
+    .catch(() => { document.getElementById('status').textContent = 'Could not load the forecast.'; });
+
+  fit();
+  window.addEventListener('resize', fit);
+  document.addEventListener('keydown', onKey);
+})();
+</script>
+</body>
+</html>

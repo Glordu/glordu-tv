@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hourly rain options</title>
+<style>
+  html, body { margin: 0; background: #0a0d14; color: #fff; font-family: 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+  /* Drawn at TV size (1920 wide) and scaled to fit the window. */
+  #stage { width: 1920px; padding: 40px 100px; box-sizing: border-box; transform-origin: top left; background: #0a0d14 url(../app-tizen/img/page-bg.png) 0 0 / 100% 100% no-repeat; }
+  .opt { margin-bottom: 46px; }
+  .opt h2 { margin: 0 0 6px; font-size: 30px; font-weight: 400; }
+  .opt p { margin: 0 0 10px; font-size: 22px; opacity: 0.55; }
+  .chart { width: 1720px; height: 290px; }
+  .line { fill: none; stroke: #fff; stroke-width: 4; stroke-linejoin: round; }
+  .now { fill: #fff; stroke: #0a0d14; stroke-width: 4; }
+  .temp { fill: #fff; font-size: 26px; text-anchor: middle; }
+  .temp.small { font-size: 21px; }
+  .hour { fill: rgba(255, 255, 255, 0.5); font-size: 22px; text-anchor: middle; }
+  .hour.small { font-size: 19px; }
+  .rain { fill: #8fc4ff; font-size: 21px; text-anchor: middle; }
+  .rain.dim { fill: rgba(143, 196, 255, 0.35); }
+  .umb { fill: #8fc4ff; stroke: #8fc4ff; }
+  .umb.dim { fill: rgba(143, 196, 255, 0.35); stroke: rgba(143, 196, 255, 0.35); }
+  .bars rect { fill: rgba(120, 180, 255, 0.4); }
+  .tick { stroke: rgba(255, 255, 255, 0.25); stroke-width: 2; }
+  #status { font-size: 24px; opacity: 0.6; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="status">Loading today's forecast…</div></div>
+<script>
+(function () {
+  const W = 1720, H = 290;
+  const UMB = '<path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/><path d="M12 12v6.5a1.6 1.6 0 0 1-3.2 0" fill="none" stroke-width="1.8" stroke-linecap="round"/>';
+  const umbrella = (cx, cy, size, dim) => '<svg class="umb' + (dim ? ' dim' : '') + '" x="' + (cx - size / 2) + '" y="' + (cy - size / 2) + '" width="' + size + '" height="' + size + '" viewBox="0 0 24 24">' + UMB + '</svg>';
+  const deg = (t) => Math.round(t) + '°';
+
+  function frame(hours, opts) {
+    const temps = hours.map((h) => h.t), lo = Math.min.apply(null, temps) - 1, hi = Math.max.apply(null, temps) + 1;
+    const x = (i) => 36 + (i / 23) * (W - 72);
+    const y = (t) => opts.top + (1 - (t - lo) / (hi - lo)) * (opts.lineBottom - opts.top);
+    let line = '';
+    hours.forEach((h, i) => { line += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(h.t).toFixed(1); });
+    const nowI = new Date().getHours();
+    return { x: x, y: y, svg: '<path class="line" d="' + line + '"/><circle class="now" cx="' + x(nowI) + '" cy="' + y(hours[nowI].t) + '" r="9"/>' };
+  }
+
+  // A: current app (every 3 h, umbrella beside the %, bars kept)
+  function optionA(hours) {
+    const f = frame(hours, { top: 50, lineBottom: 154 });
+    let out = '';
+    hours.forEach((h, i) => {
+      const bh = Math.max(3, (h.p / 100) * 50);
+      if (h.p > 0) out += '<g class="bars"><rect x="' + (f.x(i) - 14) + '" y="' + (250 - bh) + '" width="28" height="' + bh + '" rx="4"/></g>';
+      if (i % 3) return;
+      out += '<text class="temp" x="' + f.x(i) + '" y="' + (f.y(h.t) - 18) + '">' + deg(h.t) + '</text>';
+      out += '<text class="hour" x="' + f.x(i) + '" y="284">' + String(h.h).padStart(2, '0') + ':00</text>';
+      const label = h.p + '%', w = 26 + label.length * 12;
+      out += umbrella(f.x(i) - w / 2 + 11, 177, 22) + '<text class="rain" style="text-anchor:start" x="' + (f.x(i) - w / 2 + 26) + '" y="188">' + label + '</text>';
+    });
+    return f.svg + out;
+  }
+
+  // B: every hour, umbrella stacked over the %, no bars; temperature and time every hour
+  function optionB(hours) {
+    const f = frame(hours, { top: 44, lineBottom: 150 });
+    let out = '';
+    hours.forEach((h, i) => {
+      const dim = h.p === 0;
+      out += '<text class="temp small" x="' + f.x(i) + '" y="' + (f.y(h.t) - 16) + '">' + deg(h.t) + '</text>';
+      out += umbrella(f.x(i), 196, 22, dim) + '<text class="rain' + (dim ? ' dim' : '') + '" x="' + f.x(i) + '" y="232">' + h.p + '%</text>';
+      out += '<text class="hour small" x="' + f.x(i) + '" y="276">' + String(h.h).padStart(2, '0') + '</text>';
+    });
+    return f.svg + out;
+  }
+
+  // C: every hour for rain (umbrella over %), temperature and time every 3 h with hourly ticks
+  function optionC(hours) {
+    const f = frame(hours, { top: 50, lineBottom: 150 });
+    let out = '';
+    hours.forEach((h, i) => {
+      const dim = h.p === 0;
+      out += umbrella(f.x(i), 196, 22, dim) + '<text class="rain' + (dim ? ' dim' : '') + '" x="' + f.x(i) + '" y="232">' + h.p + '%</text>';
+      if (i % 3 === 0) {
+        out += '<text class="temp" x="' + f.x(i) + '" y="' + (f.y(h.t) - 18) + '">' + deg(h.t) + '</text>';
+        out += '<text class="hour" x="' + f.x(i) + '" y="280">' + String(h.h).padStart(2, '0') + ':00</text>';
+      } else {
+        out += '<line class="tick" x1="' + f.x(i) + '" x2="' + f.x(i) + '" y1="258" y2="266"/>';
+      }
+    });
+    return f.svg + out;
+  }
+
+  // D: every hour, only hours with a real chance show (≥10%); the rest stay empty
+  function optionD(hours) {
+    const f = frame(hours, { top: 50, lineBottom: 150 });
+    let out = '';
+    hours.forEach((h, i) => {
+      if (h.p >= 10) out += umbrella(f.x(i), 196, 22) + '<text class="rain" x="' + f.x(i) + '" y="232">' + h.p + '%</text>';
+      if (i % 3 === 0) {
+        out += '<text class="temp" x="' + f.x(i) + '" y="' + (f.y(h.t) - 18) + '">' + deg(h.t) + '</text>';
+        out += '<text class="hour" x="' + f.x(i) + '" y="280">' + String(h.h).padStart(2, '0') + ':00</text>';
+      } else {
+        out += '<line class="tick" x1="' + f.x(i) + '" x2="' + f.x(i) + '" y1="258" y2="266"/>';
+      }
+    });
+    return f.svg + out;
+  }
+
+  const OPTIONS = [
+    ['A · Current', 'Every 3 hours, umbrella beside the %, bars for every hour', optionA],
+    ['B · Everything hourly', 'Temperature, rain and time for all 24 hours; no bars', optionB],
+    ['C · Hourly rain, 3-hourly temperature', 'Umbrella + % every hour (0% dimmed); temperature and time every 3 hours, ticks between', optionC],
+    ['D · Hourly rain, only when likely', 'Umbrella + % only for hours at 10% or more; the rest left empty', optionD],
+  ];
+
+  function render(hours) {
+    const stage = document.getElementById('stage');
+    stage.innerHTML = OPTIONS.map((o) => '<div class="opt"><h2>' + o[0] + '</h2><p>' + o[1] + '</p><svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" overflow="visible">' + o[2](hours) + '</svg></div>').join('');
+    fit();
+  }
+
+  function fit() {
+    const s = window.innerWidth / 1920;
+    document.getElementById('stage').style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+
+  // Today's real forecast for Barcelona.
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=41.39&longitude=2.17&hourly=temperature_2m,precipitation_probability&forecast_days=1&timezone=auto')
+    .then((r) => r.json())
+    .then((b) => render(b.hourly.time.map((t, i) => ({ h: i, t: b.hourly.temperature_2m[i], p: b.hourly.precipitation_probability[i] }))))
+    .catch(() => {
+      document.getElementById('status').textContent = 'Could not load the forecast.';
+    });
+})();
+</script>
+</body>
+</html>
