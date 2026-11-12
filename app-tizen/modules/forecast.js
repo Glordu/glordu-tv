@@ -107,6 +107,25 @@
   Forecast.prototype.tickClock = function () {
     const text = GTV.clock.format(new Date());
     if (this.clockEl.textContent !== text) this.clockEl.textContent = text;
+    this.followNow();
+  };
+
+  // When a new hour starts, "now" moves to it (and "today" too at midnight).
+  // If the selection was on now, it moves along; a picked hour stays put.
+  Forecast.prototype.followNow = function () {
+    if (!this.data || !this.hours || !this.hours.length) return;
+    const next = this.hours[this.now + 1];
+    if (!next || next.h.time > Date.now()) return; // still the same hour
+    const wasOnNow = this.hour === this.now;
+    this.now = this.nowIndex();
+    this.today = this.todayIndex();
+    if (wasOnNow) {
+      this.hour = this.now;
+      this.windowStart = this.now;
+    }
+    this.rendered = null; // rebuild the hour columns so the "now" dot moves
+    this.strip = null; // and the strip, whose Today/Tomorrow labels may change
+    this.render();
   };
 
   // ---- Data ------------------------------------------------------------------
